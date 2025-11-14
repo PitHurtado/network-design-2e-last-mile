@@ -21,6 +21,7 @@ tqdm = "^4.66.1"
 matplotlib = "^3.8.3"
 scikit-learn = "^1.7.1"
 seaborn = "^0.13.2"
+colorama = "^0.4.6"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -32,3 +33,19 @@ pylint = "^3.0.2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pylint.format]
+max-line-length = 130
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "logging-fstring-interpolation",  # Permitir f-strings en logs
+]
+
+[tool.black]
+line-length = 130
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 130
