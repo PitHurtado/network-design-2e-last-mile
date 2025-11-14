@@ -1,26 +1,23 @@
 """Constants for the application."""
 
-# Constants
-FEE_COST_FROM_SATELLITE = 0.00001333
-FEE_COST_FROM_DC = 0.264
+from pathlib import Path
 
-
-# PATH_ROOT = "./data/"
-PATH_ROOT = "/Users/pitehrhurtado/Documents/Operation-Researchs/network-design-2e-last-mile/data/"
+ROOT_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT_DIR / "data"
 
 # Paths
-PATH_DATA_SATELLITE = PATH_ROOT + "input_satellites.xlsx"
-PATH_DATA_PIXEL = PATH_ROOT + "input_pixels.xlsx"
-PATH_DATA_DISTANCES_FROM_SATELLITES = PATH_ROOT + "input_matrix_distance_satellite_to_pixels.xlsx"
-PATH_DATA_DISTANCES_FROM_DC = PATH_ROOT + "input_matrix_distance_dc_to_pixels.xlsx"
+PATH_DATA_SATELLITE = DATA_DIR / "input_satellites.xlsx"
+PATH_DATA_PIXEL = DATA_DIR / "input_pixels.xlsx"
+PATH_DATA_DISTANCES_FROM_SATELLITES = DATA_DIR / "input_matrix_distance_satellite_to_pixels.xlsx"
+PATH_DATA_DISTANCES_FROM_DC = DATA_DIR / "input_matrix_distance_dc_to_pixels.xlsx"
 
 # Path root from scenarios
-PATH_ROOT_SCENARIO = PATH_ROOT + "scenarios/"
+PATH_ROOT_SCENARIO = DATA_DIR / "scenarios/"
 
-PATH_SAMPLING_SCENARIO = PATH_ROOT_SCENARIO + "sampling/"
-PATH_BEST_SOLUTION_SAA = PATH_ROOT_SCENARIO + "best_solution_saa/"
+PATH_SAMPLING_SCENARIO = PATH_ROOT_SCENARIO / "sampling/"
+PATH_BEST_SOLUTION_SAA = PATH_ROOT_SCENARIO / "best_solution_saa/"
 
 # distances matrix
-PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE = PATH_ROOT + "distances/input_matrix_distance_satellite_to_pixels.xlsx"
+PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE = DATA_DIR / "distances/input_matrix_distance_satellite_to_pixels.xlsx"
 
-PATH_DATA_DISTANCES_FACILITIES = PATH_ROOT + "distances/input_matrix_distance_dc_to_pixels.xlsx"
+PATH_DATA_DISTANCES_FACILITIES = DATA_DIR / "distances/input_matrix_distance_dc_to_pixels.xlsx"
