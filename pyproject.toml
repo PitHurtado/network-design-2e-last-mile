@@ -50,9 +50,3 @@ target-version = ["py310"]
 [tool.isort]
 profile = "black"
 line_length = 130
-
-[tool.flake8]
-max-line-length = 120
-extend-ignore = [
-    "E203",  # Compatible con Black
-]
