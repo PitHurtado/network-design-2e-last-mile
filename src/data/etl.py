@@ -5,7 +5,7 @@ import pandas as pd
 from src.constants import PATH_DATA_DISTANCES_FACILITIES, PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE
 from src.utils.custom_logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger("ETL")
 
 
 def get_distance_facility_delivery_zone() -> dict:
@@ -15,9 +15,9 @@ def get_distance_facility_delivery_zone() -> dict:
 
         df = pd.read_excel(PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE)
         for _, row in df.iterrows():
-            i = row["id_satellite"]
+            i = row["id_facility"]
             j = row["id_pixel"]
-            distance = row["distance"] / 1000
+            distance = row["distance"]
             distance_facility_delivery_zone[(i, j)] = distance
 
         return distance_facility_delivery_zone
@@ -33,10 +33,8 @@ def get_distance_facilities() -> dict:
 
         df = pd.read_excel(PATH_DATA_DISTANCES_FACILITIES)
         for _, row in df.iterrows():
-            i = row[
-                "id_pixel"
-            ]  # TODO check because this should be id_satellite, We need to estimate distance from DC to satellite
-            distance = row["distance"] / 1000
+            i = row["id_facility"]
+            distance = row["distance"]
             distance_facilities[i] = distance
 
         return distance_facilities
