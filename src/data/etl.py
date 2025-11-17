@@ -141,6 +141,8 @@ def get_scenario(id_scenario: str) -> dict[str, Pixel]:
                             drop_by_period=drop_by_period,
                             stop_by_period=stop_by_period,
                         )
+                    # elif id_pixel.startswith("0-"):
+                    #     continue
                     else:
                         logger.warning(f"Pixel {id_pixel} not found in pixels data.")
         else:
