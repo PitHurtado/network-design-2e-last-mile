@@ -343,7 +343,7 @@ class ExtendedSAAModel:
         for t in range(self.instance.periods):
             for i, facility in facilities.items():
                 for n, scenario in scenarios.items():
-                    fleet_size = scenario.get_fleet_size("facilities")
+                    fleet_size = scenario.get_fleet_size("facility")
                     name_constraint = f"R_capacity_i{i}_t{t}_n{n}"
                     if self.type_of_flexibility == FLEX_CAPACITY:
                         self.model.addConstr(
