@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass, field
 
 from src.data.etl import get_distance_facilities, get_distance_facility_delivery_zone
-from src.utils.classes import Facility, Pixel, Vehicle
+from src.utils.classes import Facility, Vehicle
 from src.utils.custom_logger import get_logger
 from src.utils.scenario import Scenario
 
@@ -103,8 +103,8 @@ class ContinuousApproximation:
                                     v=v,
                                     t=t,
                                 )
-                                costs["facility"][(i, j, v, t, w)] = cost
-                                fleet_sizes["facility"][(i, j, v, t, w)] = fleet_size
+                                costs["facility"][(i, j, v, t, w)] = round(cost, 0)
+                                fleet_sizes["facility"][(i, j, v, t, w)] = round(fleet_size, 1)
                                 parameters["facility"][(i, j, v, t, w)] = params
                         cost, fleet_size, params = self.compute_approximation_parameters(
                             area=area,
@@ -116,8 +116,8 @@ class ContinuousApproximation:
                             v="large",
                             t=t,
                         )
-                        costs["dc"][(j, "large", t, w)] = cost
-                        fleet_sizes["dc"][(j, "large", t, w)] = fleet_size
+                        costs["dc"][(j, "large", t, w)] = round(cost, 0)
+                        fleet_sizes["dc"][(j, "large", t, w)] = round(fleet_size, 1)
                         parameters["dc"][(j, "large", t, w)] = params
             scenario.set_costs(costs)
             scenario.set_fleet_size(fleet_sizes)
@@ -319,19 +319,19 @@ class ContinuousApproximation:
     #             for i, facility in self.config.facilities.items():
     #                 if not facility.is_depot:
     #                     for t in range(self.config.periods):
-    #                         first_echelon_cost = self.metrics.costs[(i, j, "first_echelon_truck", t, w)]
-    #                         line_haul_distance = self.metrics.parameters[(i, j, "first_echelon_truck", t, w)][
+    #                         first_echelon_cost = self.costs[(i, j, "first_echelon_truck", t, w)]
+    #                         line_haul_distance = self.parameters[(i, j, "first_echelon_truck", t, w)][
     #                             "distance_to_centroid"
     #                         ]  # noqa: E501
-    #                         first_echelon_vehicles = self.metrics.parameters[(i, j, "first_echelon_truck", t, w)][
+    #                         first_echelon_vehicles = self.parameters[(i, j, "first_echelon_truck", t, w)][
     #                             "average_fleet_size"
     #                         ]  # noqa: E501
 
     #                         for v in self.config.vehicles.keys():
     #                             if v not in ("first_echelon_truck"):
-    #                                 self.metrics.costs[(i, j, v, t, w)] = self.metrics.costs[(i, j, v, t, w)] + first_echelon_cost
-    #                                 self.metrics.parameters[(i, j, v, t, w)]["line_haul_distance"] = line_haul_distance
-    #                                 self.metrics.parameters[(i, j, v, t, w)]["first_echelon_vehicles"] = first_echelon_vehicles
+    #                                 self.costs[(i, j, v, t, w)] = self.costs[(i, j, v, t, w)] + first_echelon_cost
+    #                                 self.parameters[(i, j, v, t, w)]["line_haul_distance"] = line_haul_distance
+    #                                 self.parameters[(i, j, v, t, w)]["first_echelon_vehicles"] = first_echelon_vehicles
 
 
 if __name__ == "__main__":
