@@ -146,6 +146,7 @@ class Instance:
 
     def __compute_continuous_approximation(self) -> None:
         """Compute the continuous approximation parameters."""
+        logger.info("Computing continuous approximation parameters for scenarios")
         ca = ContinuousApproximation(
             facilities=self.facilities,
             vehicles=self.vehicles,
