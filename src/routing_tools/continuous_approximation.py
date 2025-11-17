@@ -86,9 +86,9 @@ class ContinuousApproximation:
                 j = key_delivery_zone
                 area = pixel.geo_point.area_surface
                 for t in range(self.config.periods):
-                    density = pixel.stop_by_period[t] / area  # customers per km^2 # TODO Check if stop or demand
-                    drop = pixel.drop_by_period[t]  # items per customer
-                    demand = pixel.demand_by_period[t]  # items
+                    density = pixel.stop_by_period[t] / area    # customers per km^2 # TODO Check if stop or demand
+                    drop = pixel.drop_by_period[t]              # items per customer
+                    demand = pixel.demand_by_period[t]          # items
 
                     if demand > 0:
                         for i in self.config.facilities.keys():
@@ -149,75 +149,118 @@ class ContinuousApproximation:
 
         # (1) Calculation of auxiliar parameters:
 
-        T_max = vehicle.t_max  # [hours]
+        T_max = vehicle.t_max                   # [hours]
 
-        effective_capacity = vehicle.capacity / drop  # [customer]  # [item] / [item/customer]
-
-        intra_tour_time_per_customer = (  # [hour/customer]
-            vehicle.k  # [-]
-            * delivery_zone_circuit_factor  # [-]
-            / (math.sqrt(density) * vehicle.speed_inter_stop)  # [sqrt(customer)/km]  # [km/hour]
+        effective_capacity = (                  # [customer]
+            vehicle.capacity / drop             # [item] / [item/customer]
         )
 
-        tour_time_per_customer = (  # [hour/customer]
-            vehicle.time_set_up  # [hour/customer]
-            + (vehicle.time_service * drop)  # [hours/item] * [item/customer]
-            + intra_tour_time_per_customer  # [hour/sqrt(customer)]
-        )
-
-        average_tour_time = effective_capacity * tour_time_per_customer  # [hour]  # [customer]  # [hour/customer]
-
-        average_number_fully_loaded_tours = T_max / (  # [-]  # [hour]
-            (average_tour_time if v != "first_echelon_truck" else 0)  # [hour]
-            + vehicle.time_prep  # [hour]
-            + (  # [hour]
-                vehicle.time_loading_per_item * effective_capacity * drop  # [hour/item]  # [customer]  # [item/customers]
+        intra_tour_time_per_customer = (        # [hour/customer]
+            vehicle.k                           # [-]
+            * delivery_zone_circuit_factor      # [-]
+            / (
+                math.sqrt(density)              # [sqrt(customer)/km]
+                * vehicle.speed_inter_stop      # [km/hour]
             )
-            + (2 * distance * vehicle.k / vehicle.speed_line_haul)  # [hour]  # [km]  # [-]  # [km/hour]
         )
 
-        average_number_customers_per_tour = effective_capacity * min(  # [customer]  # [customer]
-            1, average_number_fully_loaded_tours  # [-]
+        tour_time_per_customer = (              # [hour/customer]
+            vehicle.time_set_up                 # [hour/customer]
+            + (vehicle.time_service * drop)     # [hours/item] * [item/customer]
+            + intra_tour_time_per_customer      # [hour/sqrt(customer)]
         )
 
-        average_number_tours = max(1, average_number_fully_loaded_tours)  # [-]  # [-]
+        average_tour_time = (                   # [hour]
+            effective_capacity                  # [customer]
+            * tour_time_per_customer            # [hour/customer]
+        )
+
+
+        average_number_fully_loaded_tours = (       # [-]
+            T_max / (                               # [hour]
+                (average_tour_time                  # [hour]
+                if v!= "first_echelon_truck" else 0)
+                + vehicle.time_prep                 # [hour]
+                + (                                 # [hour]
+                    vehicle.time_loading_per_item   # [hour/item]
+                    * effective_capacity            # [customer]
+                    * drop                          # [item/customers]
+                )
+                + (                                 # [hour]
+                    2
+                    * distance                      # [km]
+                    * vehicle.k                     # [-]
+                    / vehicle.speed_line_haul       # [km/hour]
+                )
+            )
+        )
+
+        average_number_customers_per_tour = (       # [customer]
+            effective_capacity                      # [customer]
+            * min(
+                1,
+                average_number_fully_loaded_tours   # [-]
+            )
+        )
+
+        average_number_tours = max(             # [-]
+            1,
+            average_number_fully_loaded_tours   # [-]
+        )
 
         # (2) Compute average fleet size:
 
-        average_fleet_size = (  # [-]
-            area  # [km^2]
-            * density  # [customer/km^2]
-            / (average_number_fully_loaded_tours * effective_capacity)  # [-]  # [customer]
+        average_fleet_size = (                      # [-]
+            area                                    # [km^2]
+            * density                               # [customer/km^2]
+            / (
+                average_number_fully_loaded_tours   # [-]
+                * effective_capacity                # [customer]
+            )
         )
 
         # (3) Calculation of costs:
 
         # (3.1) Preparation costs:
-        cost_tour_preparation = vehicle.cost_hour * (  # [$]  # [$/hour]
-            vehicle.time_prep  # [hour]
-            + vehicle.time_loading_per_item  # [hour/item]
-            * average_number_customers_per_tour  # [customer]
-            * drop  # [item/customer]
+        cost_tour_preparation = (                       # [$]
+            vehicle.cost_hour * (                       # [$/hour]
+                vehicle.time_prep                       # [hour]
+                + vehicle.time_loading_per_item         # [hour/item]
+                * average_number_customers_per_tour     # [customer]
+                * drop                                  # [item/customer]
+            )
         )
 
         # (3.2) Line-haul transportation costs:
-        cost_line_haul = vehicle.cost_hour * (  # [$]  # [$/hour]
-            2 * distance * vehicle.k / vehicle.speed_line_haul  # [km]  # [-]  # [km/hour]
-        ) + vehicle.cost_km * (  # [$/km]
-            2 * distance * vehicle.k  # [km]  # [-]
+        cost_line_haul = (                  # [$]
+            vehicle.cost_hour * (           # [$/hour]
+                2
+                * distance                  # [km]
+                * vehicle.k                 # [-]
+                / vehicle.speed_line_haul   # [km/hour]
+            )
+            + vehicle.cost_km * (           # [$/km]
+                2
+                * distance                  # [km]
+                * vehicle.k                 # [-]
+            )
         )
 
         # (3.3) Intra-stop transportation costs:
         if v == "first_echelon_truck":
             cost_intra_stop = 0
         else:
-            cost_intra_stop = vehicle.cost_hour * (  # [$/hour]
-                tour_time_per_customer * average_number_customers_per_tour  # [hour/customer]  # [customers]
-            ) + vehicle.cost_km * (  # [$/km]
-                vehicle.k  # [-]
-                * delivery_zone_circuit_factor  # [-]
-                * average_number_customers_per_tour  # [customer]
-                / math.sqrt(density)  # [sqrt(customer)/km]
+            cost_intra_stop = (
+                vehicle.cost_hour * (                       # [$/hour]
+                    tour_time_per_customer                  # [hour/customer]
+                    * average_number_customers_per_tour     # [customers]
+                )
+                + vehicle.cost_km * (                       # [$/km]
+                    vehicle.k                               # [-]
+                    * delivery_zone_circuit_factor          # [-]
+                    * average_number_customers_per_tour     # [customer]
+                    / math.sqrt(density)                    # [sqrt(customer)/km]
+                )
             )
 
         # (3.4) Fixed costs per vehicle needed:
