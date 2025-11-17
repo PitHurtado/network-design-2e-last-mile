@@ -17,8 +17,16 @@ if __name__ == "__main__":
     for config in configuration:
         try:
             logger.info(f"Solving instance with configuration: {config}")
+            # main = Main(
+            #     id_instance="extended_saa_1", folder_path=FOLDER_PATH, configuration=config, is_evaluation=True, max_run_time=10 #noqa: E501
+            # )
             main = Main(
-                id_instance="extended_saa_1", folder_path=FOLDER_PATH, configuration=config, is_evaluation=True, max_run_time=10
+                id_instance="extended_saa_2",
+                folder_path=FOLDER_PATH,
+                configuration=config,
+                is_evaluation=False,
+                id_sampling=1,
+                max_run_time=60,
             )
             main.solve()
         except Exception as e:

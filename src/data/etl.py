@@ -143,6 +143,9 @@ def get_scenario(id_scenario: str) -> dict[str, Pixel]:
                         )
                     else:
                         logger.warning(f"Pixel {id_pixel} not found in pixels data.")
+        else:
+            logger.error(f"Scenario file {path_scenario} not found.")
+            raise FileNotFoundError(f"Scenario file {path_scenario} not found.")
     except FileNotFoundError as error:
         logger.error(f"Not Found Scenario: {error}")
         raise error

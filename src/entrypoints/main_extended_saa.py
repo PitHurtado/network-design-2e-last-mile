@@ -21,7 +21,7 @@ class Main:
         configuration: tuple,
         is_evaluation: bool,
         max_run_time: int,
-        sampling_id: Optional[int] = None,
+        id_sampling: Optional[int] = None,
     ):
         self.folder_path = folder_path
         self.configuration = configuration
@@ -41,7 +41,7 @@ class Main:
             periods=12,
             N=N,
             is_evaluation=is_evaluation,
-            sampling_id=sampling_id,
+            id_sampling=id_sampling,
         )
         logger.info(f"Instance Loaded: {configuration}")
 

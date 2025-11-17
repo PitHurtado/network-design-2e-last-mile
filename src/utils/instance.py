@@ -23,7 +23,7 @@ class ConfigurationInstance:
     type_of_flexibility: str
     N: int
     is_evaluation: bool
-    sampling_id: Optional[int]
+    id_sampling: Optional[int]
 
 
 class Instance:
@@ -37,7 +37,7 @@ class Instance:
         periods: int,
         N: int,
         is_evaluation: bool,
-        sampling_id: Optional[int] = None,
+        id_sampling: Optional[int] = None,
     ):  # pylint: disable=too-many-arguments
 
         self.id_instance = id_instance
@@ -46,7 +46,7 @@ class Instance:
             type_of_flexibility=type_of_flexibility,
             N=N,
             is_evaluation=is_evaluation,
-            sampling_id=sampling_id,
+            id_sampling=id_sampling,
         )
         self.periods = periods
 
@@ -90,8 +90,8 @@ class Instance:
                 with open(path_json, "r") as file:
                     data = json.load(file)
                     id_scenarios_sample = data["id_scenarios_sample"]
-        elif self.config.sampling_id is not None:
-            path_json = PATH_SAMPLING_SCENARIO / f"sampling_{self.config.sampling_id}.json"
+        elif self.config.id_sampling is not None:
+            path_json = PATH_SAMPLING_SCENARIO / f"sampling_{self.config.id_sampling}.json"
             if os.path.exists(path_json):
                 with open(path_json, "r") as file:
                     data = json.load(file)
