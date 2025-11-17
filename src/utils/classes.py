@@ -47,6 +47,7 @@ class Facility:
         cost_installation: dict[str, float],
         cost_operation: dict[str, list[float]],
         cost_sourcing: float = 0.335,
+        is_depot: bool = False,
     ):  # pylint: disable=too-many-arguments
         self.geo_point = GeoPoint(lon, lat)
         self.id_facility = id_facility
@@ -54,6 +55,7 @@ class Facility:
         self.cost_operation = cost_operation
         self.cost_sourcing = cost_sourcing
         self.capacity = capacity
+        self.is_depot = is_depot
 
 
 class Vehicle:

@@ -4,7 +4,9 @@ import math
 from dataclasses import dataclass, field
 
 from src.data.etl import get_distance_facilities, get_distance_facility_delivery_zone
+from src.utils.classes import Facility, Pixel, Vehicle
 from src.utils.custom_logger import get_logger
+from src.utils.scenario import Scenario
 
 logger = get_logger("ContinuousApproximation")
 
@@ -27,19 +29,21 @@ class ApproximationConfiguration:
     - depot keys
     - vehicles."""
 
-    scenarios: dict
-    facilities: dict
-    delivery_zones: dict
-    depot_keys: dict
-    vehicles: dict
+    scenarios: dict[str, Scenario]
+    facilities: dict[str, Facility]
+    delivery_zones: dict[str, Pixel]
+    vehicles: dict[str, Vehicle]
+    periods: int = 12
 
 
 @dataclass
 class ApproximationDistances:
     """Class to store distances between facilities and delivery zones."""
 
-    facility_delivery_zone: dict = field(default_factory=dict)  # Distances between facilities and delivery zones
-    facilities: dict = field(default_factory=dict)  # Distances between facilities
+    facility_delivery_zone: dict[tuple[str, str], float] = field(
+        default_factory=dict
+    )  # Distances between facilities and delivery zones
+    facilities: dict[str, float] = field(default_factory=dict)  # Distances between facilities
 
 
 class ContinuousApproximation:
@@ -50,24 +54,30 @@ class ContinuousApproximation:
     3. Stores computed parameters for further analysis.
     Attributes:
         scenarios (dict): Dictionary of scenario objects containing demand data.
-        satelites (dict): Dictionary of satellite facility objects.
+        facilities (dict): Dictionary of facility objects.
         pixels (dict): Dictionary of pixel/delivery zone objects.
-        distribution_center (object): Distribution center object.
-        vehicles_facility (dict): Dictionary of vehicle objects per facility.
+        vehicles (dict): Dictionary of vehicle objects.
     Outputs:
         c (dict): Total costs for each facility-delivery zone-vehicle combination.
         n (dict): Average number of vehicles required for each combination.
         parameters (dict): Detailed CA parameters for each combination.
     """
 
-    def __init__(self, scenarios, satelites, pixels, distribution_center, vehicles, show_logs=False):
+    def __init__(
+        self,
+        scenarios: dict[str, Scenario],
+        facilities: dict[str, Facility],
+        pixels: dict[str, Pixel],
+        vehicles: dict[str, Vehicle],
+        show_logs=False,
+    ):
         self.__show_logs = show_logs
         self.config = ApproximationConfiguration(
             scenarios=scenarios,
-            facilities=satelites,
+            facilities=facilities,
             delivery_zones=pixels,
-            depot_keys={k: distribution_center.key for k in satelites.keys()},
             vehicles=vehicles,
+            periods=12,
         )
         self.metrics = ApproximationMetrics()
         self.distances = ApproximationDistances()
@@ -85,26 +95,27 @@ class ContinuousApproximation:
         self.__compute_distances()
 
         for w, scenario in self.config.scenarios.items():
-            for key_delivery_zone, values in scenario.demands.items():
-
+            for key_delivery_zone, pixel in scenario.pixels.items():
                 j = key_delivery_zone
-                area = values["area"]
-                density = values["density"]
-                drop = values["drop"]
-                demand = values["demand"]
+                area = pixel.geo_point.area_surface
+                for t in range(self.config.periods):
+                    density = pixel.stop_by_period[t] / area    # customers per km^2 # TODO Check if stop or demand
+                    drop = pixel.drop_by_period[t]              # items per customer
+                    demand = pixel.demand_by_period[t]          # items
 
-                if demand > 0:
-                    for i in self.config.facilities.keys():
-                        for v in self.config.vehicles.keys():
-                            self.compute_approximation_parameters(
-                                area=area,
-                                density=density,
-                                drop=drop,
-                                i=i,
-                                j=j,
-                                w=w,
-                                v=v,
-                            )
+                    if demand > 0:
+                        for i in self.config.facilities.keys():
+                            for v in self.config.vehicles.keys():
+                                self.compute_approximation_parameters(
+                                    area=area,
+                                    density=density,
+                                    drop=drop,
+                                    i=i,
+                                    j=j,
+                                    w=w,
+                                    v=v,
+                                    t=t,
+                                )
 
         self._add_first_echelon_costs()  # Snoeck and Winkenbach (2020) use a per-parcel cost
 
@@ -116,8 +127,8 @@ class ContinuousApproximation:
             for i in self.config.facilities.keys():
                 for j in self.config.delivery_zones.keys():
                     for v in self.config.vehicles.keys():
-                        self.metrics.costs[(i, j, w, v)] = 0
-                        self.metrics.fleet_sizes[(i, j, w, v)] = 0
+                        self.metrics.costs[(i, j, v, w)] = 0
+                        self.metrics.fleet_sizes[(i, j, v, w)] = 0
 
         keys = [
             "T_max",
@@ -136,7 +147,7 @@ class ContinuousApproximation:
         ]
 
         self.metrics.parameters = {
-            (i, j, w, v): {key: 0 for key in keys}
+            (i, j, v, w): {key: 0 for key in keys}
             for w in self.config.scenarios
             for i in self.config.facilities
             for j in self.config.delivery_zones
@@ -157,6 +168,7 @@ class ContinuousApproximation:
         j,
         w,
         v,
+        t,
     ):
         """Compute continuous approximation parameters for a specific facility-delivery zone-vehicle combination."""
         area = area
@@ -166,6 +178,7 @@ class ContinuousApproximation:
         j = j
         w = w
         v = v
+        t = t
         vehicle = self.config.vehicles[v]
         delivery_zone_circuit_factor = self.config.delivery_zones[j].k
 
@@ -176,77 +189,118 @@ class ContinuousApproximation:
 
         # (1) Calculation of auxiliar parameters:
 
-        T_max = vehicle.t_max  # [hours]
+        T_max = vehicle.t_max                   # [hours]
 
-        effective_capacity = vehicle.capacity / drop  # [customer]  # [item] / [item/customer]
-
-        intra_tour_time_per_customer = (  # [hour/customer]
-            vehicle.k  # [-]
-            * delivery_zone_circuit_factor  # [-]
-            / (math.sqrt(density) * vehicle.speed_inter_stop)  # [sqrt(customer)/km]  # [km/hour]
+        effective_capacity = (                  # [customer]
+            vehicle.capacity / drop             # [item] / [item/customer]
         )
 
-        tour_time_per_customer = (  # [hour/customer]
-            vehicle.time_set_up  # [hour/customer]
-            + (vehicle.time_service * drop)  # [hours/item] * [item/customer]
-            + intra_tour_time_per_customer  # [hour/sqrt(customer)]
-        )
-
-        average_tour_time = effective_capacity * tour_time_per_customer  # [hour]  # [customer]  # [hour/customer]
-
-        average_number_fully_loaded_tours = T_max / (  # [-]  # [hour]
-            (average_tour_time if v != "first_echelon_truck" else 0)  # [hour]
-            + vehicle.time_prep  # [hour]
-            + (  # [hour]
-                vehicle.time_loading_per_item
-                * effective_capacity
-                * drop  # [hour/item]  # [customer]  # [item/customers] # noqa: E501
+        intra_tour_time_per_customer = (        # [hour/customer]
+            vehicle.k                           # [-]
+            * delivery_zone_circuit_factor      # [-]
+            / (
+                math.sqrt(density)              # [sqrt(customer)/km]
+                * vehicle.speed_inter_stop      # [km/hour]
             )
-            + (2 * distance * vehicle.k / vehicle.speed_line_haul)  # [hour]  # [km]  # [-]  # [km/hour]
         )
 
-        average_number_customers_per_tour = effective_capacity * min(  # [customer]  # [customer]
-            1, average_number_fully_loaded_tours  # [-]
+        tour_time_per_customer = (              # [hour/customer]
+            vehicle.time_set_up                 # [hour/customer]
+            + (vehicle.time_service * drop)     # [hours/item] * [item/customer]
+            + intra_tour_time_per_customer      # [hour/sqrt(customer)]
         )
 
-        average_number_tours = max(1, average_number_fully_loaded_tours)  # [-]  # [-]
+        average_tour_time = (                   # [hour]
+            effective_capacity                  # [customer]
+            * tour_time_per_customer            # [hour/customer]
+        )
+
+
+        average_number_fully_loaded_tours = (       # [-]
+            T_max / (                               # [hour]
+                (average_tour_time                  # [hour]
+                if v!= "first_echelon_truck" else 0)
+                + vehicle.time_prep                 # [hour]
+                + (                                 # [hour]
+                    vehicle.time_loading_per_item   # [hour/item]
+                    * effective_capacity            # [customer]
+                    * drop                          # [item/customers]
+                )
+                + (                                 # [hour]
+                    2
+                    * distance                      # [km]
+                    * vehicle.k                     # [-]
+                    / vehicle.speed_line_haul       # [km/hour]
+                )
+            )
+        )
+
+        average_number_customers_per_tour = (       # [customer]
+            effective_capacity                      # [customer]
+            * min(
+                1,
+                average_number_fully_loaded_tours   # [-]
+            )
+        )
+
+        average_number_tours = max(             # [-]
+            1,
+            average_number_fully_loaded_tours   # [-]
+        )
 
         # (2) Compute average fleet size:
 
-        average_fleet_size = (  # [-]
-            area  # [km^2]
-            * density  # [customer/km^2]
-            / (average_number_fully_loaded_tours * effective_capacity)  # [-]  # [customer]
+        average_fleet_size = (                      # [-]
+            area                                    # [km^2]
+            * density                               # [customer/km^2]
+            / (
+                average_number_fully_loaded_tours   # [-]
+                * effective_capacity                # [customer]
+            )
         )
 
         # (3) Calculation of costs:
 
         # (3.1) Preparation costs:
-        cost_tour_preparation = vehicle.cost_hour * (  # [$]  # [$/hour]
-            vehicle.time_prep  # [hour]
-            + vehicle.time_loading_per_item  # [hour/item]
-            * average_number_customers_per_tour  # [customer]
-            * drop  # [item/customer]
+        cost_tour_preparation = (                       # [$]
+            vehicle.cost_hour * (                       # [$/hour]
+                vehicle.time_prep                       # [hour]
+                + vehicle.time_loading_per_item         # [hour/item]
+                * average_number_customers_per_tour     # [customer]
+                * drop                                  # [item/customer]
+            )
         )
 
         # (3.2) Line-haul transportation costs:
-        cost_line_haul = vehicle.cost_hour * (  # [$]  # [$/hour]
-            2 * distance * vehicle.k / vehicle.speed_line_haul  # [km]  # [-]  # [km/hour]
-        ) + vehicle.cost_km * (  # [$/km]
-            2 * distance * vehicle.k  # [km]  # [-]
+        cost_line_haul = (                  # [$]
+            vehicle.cost_hour * (           # [$/hour]
+                2
+                * distance                  # [km]
+                * vehicle.k                 # [-]
+                / vehicle.speed_line_haul   # [km/hour]
+            )
+            + vehicle.cost_km * (           # [$/km]
+                2
+                * distance                  # [km]
+                * vehicle.k                 # [-]
+            )
         )
 
         # (3.3) Intra-stop transportation costs:
         if v == "first_echelon_truck":
             cost_intra_stop = 0
         else:
-            cost_intra_stop = vehicle.cost_hour * (  # [$/hour]
-                tour_time_per_customer * average_number_customers_per_tour  # [hour/customer]  # [customers]
-            ) + vehicle.cost_km * (  # [$/km]
-                vehicle.k  # [-]
-                * delivery_zone_circuit_factor  # [-]
-                * average_number_customers_per_tour  # [customer]
-                / math.sqrt(density)  # [sqrt(customer)/km]
+            cost_intra_stop = (
+                vehicle.cost_hour * (                       # [$/hour]
+                    tour_time_per_customer                  # [hour/customer]
+                    * average_number_customers_per_tour     # [customers]
+                )
+                + vehicle.cost_km * (                       # [$/km]
+                    vehicle.k                               # [-]
+                    * delivery_zone_circuit_factor          # [-]
+                    * average_number_customers_per_tour     # [customer]
+                    / math.sqrt(density)                    # [sqrt(customer)/km]
+                )
             )
 
         # (3.4) Fixed costs per vehicle needed:
@@ -259,9 +313,9 @@ class ContinuousApproximation:
         # (3.5) Total cost:
         cost_total = cost_fixed + cost_variable
 
-        self.metrics.costs[(i, j, w, v)] = round(cost_total, 2)
-        self.metrics.fleet_sizes[(i, j, w, v)] = round(average_fleet_size, 2)
-        self.metrics.parameters[(i, j, w, v)] = {
+        self.metrics.costs[(i, j, v, t, w)] = round(cost_total, 2)
+        self.metrics.fleet_sizes[(i, j, v, t, w)] = round(average_fleet_size, 2)
+        self.metrics.parameters[(i, j, v, t, w)] = {
             "T_max": T_max,
             "effective_capacity": effective_capacity,
             "intra_tour_time_per_customer": intra_tour_time_per_customer,
@@ -289,19 +343,20 @@ class ContinuousApproximation:
                 j = key_delivery_zone
                 for i, facility in self.config.facilities.items():
                     if not facility.is_depot:
-                        first_echelon_cost = self.metrics.costs[(i, j, w, "first_echelon_truck")]
-                        line_haul_distance = self.metrics.parameters[(i, j, w, "first_echelon_truck")][
-                            "distance_to_centroid"
-                        ]  # noqa: E501
-                        first_echelon_vehicles = self.metrics.parameters[(i, j, w, "first_echelon_truck")][
-                            "average_fleet_size"
-                        ]  # noqa: E501
+                        for t in range(self.config.periods):
+                            first_echelon_cost = self.metrics.costs[(i, j, "first_echelon_truck", t, w)]
+                            line_haul_distance = self.metrics.parameters[(i, j, "first_echelon_truck", t, w)][
+                                "distance_to_centroid"
+                            ]  # noqa: E501
+                            first_echelon_vehicles = self.metrics.parameters[(i, j, "first_echelon_truck", t, w)][
+                                "average_fleet_size"
+                            ]  # noqa: E501
 
-                        for v in self.config.vehicles.keys():
-                            if v not in ("first_echelon_truck"):
-                                self.metrics.costs[(i, j, w, v)] = self.metrics.costs[(i, j, w, v)] + first_echelon_cost
-                                self.metrics.parameters[(i, j, w, v)]["line_haul_distance"] = line_haul_distance
-                                self.metrics.parameters[(i, j, w, v)]["first_echelon_vehicles"] = first_echelon_vehicles
+                            for v in self.config.vehicles.keys():
+                                if v not in ("first_echelon_truck"):
+                                    self.metrics.costs[(i, j, v, t, w)] = self.metrics.costs[(i, j, v, t, w)] + first_echelon_cost
+                                    self.metrics.parameters[(i, j, v, t, w)]["line_haul_distance"] = line_haul_distance
+                                    self.metrics.parameters[(i, j, v, t, w)]["first_echelon_vehicles"] = first_echelon_vehicles
 
 
 if __name__ == "__main__":
