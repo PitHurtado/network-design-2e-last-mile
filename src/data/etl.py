@@ -27,8 +27,8 @@ def get_distance_facility_delivery_zone() -> dict:
 
         df = pd.read_excel(PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE)
         for _, row in df.iterrows():
-            i = row["id_facility"]
-            j = row["id_pixel"]
+            i = row["id_facility"].upper()
+            j = row["id_pixel"].upper()
             distance = row["distance"]
             distance_facility_delivery_zone[(i, j)] = distance
 
@@ -45,7 +45,7 @@ def get_distance_facilities() -> dict:
 
         df = pd.read_excel(PATH_DATA_DISTANCES_FACILITIES)
         for _, row in df.iterrows():
-            i = row["id_facility"]
+            i = row["id_facility"].upper()
             distance = row["distance"]
             distance_facilities[i] = distance
 

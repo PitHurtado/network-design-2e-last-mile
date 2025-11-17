@@ -90,10 +90,10 @@ class Vehicle:
         time_loading_per_item: float,  # Time Set-Up: Time to Load the Vehicle (Time/ package) # pylint: disable=line-too-long # noqa: E501
         time_set_up: float,  # Intra-Stop Time: Set-up Time per vehicle (h/customer; ie parkting time) # pylint: disable=line-too-long # noqa: E501
         time_service: float,  # Intra-Stop Time: Incremental Service Time for delivery option (h/item) # pylint: disable=line-too-long # noqa: E501
-        speed_linehaul: float,
-        speed_interstop: float,
+        speed_line_haul: float,
+        speed_inter_stop: float,
         t_max: float,
-        cost_hourly: float,
+        cost_hour: float,
         cost_km: float,
         cost_item: float,
         k: float = 0.57,
@@ -102,7 +102,7 @@ class Vehicle:
         self.type_vehicle = type_vehicle
         self.capacity = capacity
         self.cost_fixed = cost_fixed
-        self.cost_hourly = cost_hourly
+        self.cost_hour = cost_hour
         self.cost_km = cost_km
         self.cost_item = cost_item
 
@@ -112,8 +112,8 @@ class Vehicle:
         self.time_loading_per_item = time_loading_per_item
         self.t_max = t_max
 
-        self.speed_linehaul = speed_linehaul
-        self.speed_interstop = speed_interstop
+        self.speed_line_haul = speed_line_haul
+        self.speed_inter_stop = speed_inter_stop
         self.k = k
 
     def __str__(self):

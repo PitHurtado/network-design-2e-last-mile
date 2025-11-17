@@ -5,12 +5,12 @@ import os
 from dataclasses import dataclass
 from typing import Dict, List
 
-from data.etl import get_facilities, get_scenario, get_vehicles
 from src.constants import PATH_SAMPLING_SCENARIO
+from src.data.etl import get_facilities, get_scenario, get_vehicles
 from src.routing_tools.continuous_approximation import ContinuousApproximation
 from src.utils.classes import Facility, Pixel, Vehicle
 from src.utils.custom_logger import get_logger
-from utils.scenario import Scenario
+from src.utils.scenario import Scenario
 
 logger = get_logger("Instance")
 
@@ -71,7 +71,7 @@ class Instance:
             f"Periods: {self.periods}\n"
             f"N: {self.config.N}\n"
             f"Is evaluation: {self.config.is_evaluation}\n"
-            f"Quantity of satellites: {len(self.facilities)}\n"
+            f"Quantity of facilities: {len(self.facilities)}\n"
             f"Quantity of vehicles: {len(self.vehicles)}\n"
             f"Quantity of scenarios: {len(self.scenarios)}\n"
             f"-----------------"
@@ -81,7 +81,7 @@ class Instance:
         """Get the scenarios for sample."""
         id_scenarios_sample = []
         if self.config.is_evaluation:
-            path_json = PATH_SAMPLING_SCENARIO + "evaluation.json"
+            path_json = PATH_SAMPLING_SCENARIO / "evaluation.json"
             if os.path.exists(path_json):
                 with open(path_json, "r") as file:
                     data = json.load(file)
@@ -157,3 +157,16 @@ class Instance:
             "quantity_vehicles": len(self.vehicles),
             "quantity_scenarios": len(self.scenarios),
         }
+
+
+if __name__ == "__main__":
+    logger.info("Testing Instance Class")
+    instance = Instance(
+        id_instance="1",
+        is_continuous_x=True,
+        type_of_flexibility="Flex-Capacity",
+        periods=12,
+        N=1,
+        is_evaluation=True,
+    )
+    logger.info(instance)
