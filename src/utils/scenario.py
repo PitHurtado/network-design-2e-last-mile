@@ -27,6 +27,14 @@ class Scenario:
         """Return a string representation of the scenario."""
         return f"Scenario {self.id_scenario} with {len(self.pixels)} pixels and {self.periods} periods"  # pylint: disable=line-too-long # noqa:E501
 
+    def get_info(self) -> Dict[str, Any]:
+        """Get the information of the scenario."""
+        return {
+            "costs": self.costs,
+            "fleet_size": self.fleet_size,
+            "periods": self.periods,
+        }
+
     def set_fleet_size(self, fleet_size: Dict[str, Dict]) -> None:
         """Set the fleet size for the scenario."""
         self.fleet_size = fleet_size

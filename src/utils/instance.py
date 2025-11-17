@@ -19,7 +19,7 @@ logger = get_logger("Instance")
 class ConfigurationInstance:
     """Configuration for the instance."""
 
-    is_continuous_x: bool
+    is_continuous_var_x: bool
     type_of_flexibility: str
     N: int
     is_evaluation: bool
@@ -32,7 +32,7 @@ class Instance:
     def __init__(
         self,
         id_instance: str,
-        is_continuous_x: bool,
+        is_continuous_var_x: bool,
         type_of_flexibility: str,
         periods: int,
         N: int,
@@ -42,7 +42,7 @@ class Instance:
 
         self.id_instance = id_instance
         self.config = ConfigurationInstance(
-            is_continuous_x=is_continuous_x,
+            is_continuous_var_x=is_continuous_var_x,
             type_of_flexibility=type_of_flexibility,
             N=N,
             is_evaluation=is_evaluation,
@@ -70,7 +70,7 @@ class Instance:
             f"---- Instance ----\n"
             f"ID of the instance: {self.id_instance}\n"
             f"ID scenario sample: {self.scenarios_ids}\n"
-            f"Is continuous X: {self.config.is_continuous_x}\n"
+            f"Is continuous X: {self.config.is_continuous_var_x}\n"
             f"Type of flexibility: {self.config.type_of_flexibility}\n"
             f"Periods: {self.periods}\n"
             f"N: {self.config.N}\n"
@@ -158,7 +158,7 @@ class Instance:
         """Get the information of the instance."""
         return {
             "id_instance": self.id_instance,
-            "is_continuous_x": self.config.is_continuous_x,
+            "is_continuous_var_x": self.config.is_continuous_var_x,
             "type_of_flexibility": self.config.type_of_flexibility,
             "periods": self.periods,
             "N": self.config.N,
@@ -173,10 +173,12 @@ if __name__ == "__main__":
     logger.info("Testing Instance Class")
     instance = Instance(
         id_instance="1",
-        is_continuous_x=True,
+        is_continuous_var_x=True,
         type_of_flexibility="Flex-Capacity",
         periods=12,
         N=1,
         is_evaluation=True,
     )
     logger.info(instance)
+    for scenario_id, scenario in instance.scenarios.items():
+        logger.info(scenario.get_info())

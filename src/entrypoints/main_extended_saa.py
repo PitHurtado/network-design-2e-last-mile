@@ -30,13 +30,13 @@ class Main:
         logger.info(f"Loading instance: {configuration}")
         (
             N,
-            is_continuous_x,
+            is_continuous_var_x,
             type_of_flexibility,
         ) = configuration
 
         self.instance = Instance(
             id_instance=id_instance,
-            is_continuous_x=is_continuous_x,
+            is_continuous_var_x=is_continuous_var_x,
             type_of_flexibility=type_of_flexibility,
             periods=12,
             N=N,

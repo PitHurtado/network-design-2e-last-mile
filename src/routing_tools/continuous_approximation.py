@@ -106,6 +106,19 @@ class ContinuousApproximation:
                                 costs["facility"][(i, j, v, t, w)] = cost
                                 fleet_sizes["facility"][(i, j, v, t, w)] = fleet_size
                                 parameters["facility"][(i, j, v, t, w)] = params
+                        cost, fleet_size, params = self.compute_approximation_parameters(
+                            area=area,
+                            density=density,
+                            drop=drop,
+                            i="DC",
+                            j=j,
+                            w=w,
+                            v="large",
+                            t=t,
+                        )
+                        costs["dc"][(j, "large", t, w)] = cost
+                        fleet_sizes["dc"][(j, "large", t, w)] = fleet_size
+                        parameters["dc"][(j, "large", t, w)] = params
             scenario.set_costs(costs)
             scenario.set_fleet_size(fleet_sizes)
             scenario.set_parameters(parameters)

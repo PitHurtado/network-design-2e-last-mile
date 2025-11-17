@@ -213,7 +213,7 @@ class ExtendedSAAModel:
         logger.info("Adding objective to model")
         self.obj.cost_installation_facilities = quicksum(
             [
-                round(facility.cost_fixed[q], 0) * self.vars.Y[(i, q)]
+                round(facility.cost_installation[q], 0) * self.vars.Y[(i, q)]
                 for i, facility in facilities.items()
                 for q, capacity in facility.capacity.items()
                 if capacity > 0
@@ -247,7 +247,7 @@ class ExtendedSAAModel:
         # 3. add cost served from facilities
         self.obj.cost_served_from_facilities = quicksum(
             [
-                round(scenario.get_cost_serving("facility")[(i, k, t)]["total"], 0) * self.vars.X[(i, k, t, n)]
+                round(scenario.get_cost_serving("facility")[(i, k, "small", t, n)], 0) * self.vars.X[(i, k, t, n)]
                 for i in facilities.keys()
                 for n, scenario in scenarios.items()
                 for k in scenario.pixels.keys()
@@ -258,7 +258,7 @@ class ExtendedSAAModel:
         # 4. add cost served from dc
         self.obj.cost_served_from_dc = quicksum(
             [
-                round(scenario.get_cost_serving("dc")[(k, t)]["total"], 0) * self.vars.W[(k, t, n)]
+                round(scenario.get_cost_serving("dc")[(k, "large", t, n)], 0) * self.vars.W[(k, t, n)]
                 for n, scenario in scenarios.items()
                 for k in scenario.pixels.keys()
                 for t in range(self.instance.periods)
@@ -347,7 +347,7 @@ class ExtendedSAAModel:
                         self.model.addConstr(
                             quicksum(
                                 [
-                                    self.vars.X[(i, k, t, n)] * round(fleet_size[(i, k, t)]["fleet_size"], 1)
+                                    self.vars.X[(i, k, t, n)] * round(fleet_size[(i, k, "small", t, n)], 1)
                                     for k in scenario.pixels.keys()
                                 ]
                             )
@@ -365,7 +365,7 @@ class ExtendedSAAModel:
                         self.model.addConstr(
                             quicksum(
                                 [
-                                    self.vars.X[(i, k, t, n)] * round(fleet_size[(i, k, t)]["fleet_size"], 1)
+                                    self.vars.X[(i, k, t, n)] * round(fleet_size[(i, k, "small", t, n)], 1)
                                     for k in scenario.pixels.keys()
                                 ]
                             )
@@ -387,8 +387,8 @@ class ExtendedSAAModel:
                 for k in scenario.pixels.keys():
                     name_constraint = f"R_demand_k{k}_t{t}_n{n}"
                     self.model.addConstr(
-                        quicksum([self.vars.X[(i, k, n, t)] for i in facilities.keys()])
-                        + quicksum([self.vars.W[(k, n, t)]])  # noqa: E501
+                        quicksum([self.vars.X[(i, k, t, n)] for i in facilities.keys()])
+                        + quicksum([self.vars.W[(k, t, n)]])  # noqa: E501
                         >= 1,
                         name=name_constraint,
                     )
