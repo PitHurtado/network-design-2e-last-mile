@@ -38,6 +38,16 @@ build-backend = "poetry.core.masonry.api"
 [tool.pylint.format]
 max-line-length = 130
 
+[tool.pylint."BASIC"]
+good-names = [
+    "i", "j", "k",        
+    "u", "v", "w",        
+    "d", "c", "f",
+    "X", "Y", "Z",    
+    "Q", "P", "W", "F",   
+    "x", "y", "z"
+]
+
 [tool.pylint."MESSAGES CONTROL"]
 disable = [
     "logging-fstring-interpolation",  # Permitir f-strings en logs
