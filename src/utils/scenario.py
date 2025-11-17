@@ -1,6 +1,6 @@
 """Module for the Scenario class."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from src.utils.classes import Pixel
 
@@ -12,19 +12,32 @@ class Scenario:
         self,
         id_scenario: int,
         pixels: Dict[str, Pixel],
-        costs: Dict[str, Dict],
-        fleet_size: Dict[str, Dict],
         periods: int,
+        costs: Optional[Dict[str, Dict]] = None,
+        fleet_size: Optional[Dict[str, Dict]] = None,
     ):  # pylint: disable=too-many-arguments
         self.id_scenario = id_scenario
         self.pixels = pixels
         self.costs = costs
         self.fleet_size = fleet_size
         self.periods = periods
+        self.parameters = None
 
     def __str__(self):
         """Return a string representation of the scenario."""
         return f"Scenario {self.id_scenario} with {len(self.pixels)} pixels and {self.periods} periods"  # pylint: disable=line-too-long # noqa:E501
+
+    def set_fleet_size(self, fleet_size: Dict[str, Dict]) -> None:
+        """Set the fleet size for the scenario."""
+        self.fleet_size = fleet_size
+
+    def set_costs(self, costs: Dict[str, Dict]) -> None:
+        """Set the costs for the scenario."""
+        self.costs = costs
+
+    def set_parameters(self, parameters: Dict[str, Dict]) -> None:
+        """Set the continuous approximation parameters for the scenario."""
+        self.parameters = parameters
 
     def get_fleet_size(self, echelon: str = "facility") -> Dict[Any, float]:
         """Return the fleet size required for a given echelon and period
