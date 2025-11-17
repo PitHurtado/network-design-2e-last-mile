@@ -56,8 +56,8 @@ class ExtendedSAAModel:
         self.instance: Instance = instance
 
         # Params from instance-config
-        self.type_of_flexibility: str = instance.type_of_flexibility
-        self.is_continuous_x: bool = instance.is_continuous_var_x
+        self.type_of_flexibility: str = instance.config.type_of_flexibility
+        self.is_continuous_x: bool = instance.config.is_continuous_var_x
 
         # Variables
         self.vars = VariablesModel(Z={}, Y={}, W={}, X={})

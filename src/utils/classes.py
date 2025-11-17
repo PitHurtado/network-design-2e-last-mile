@@ -24,6 +24,7 @@ class Pixel:
         area_surface: float,
         speed_intra_stop: dict[str, float],
         k: float = 0.57,
+        is_available: bool = False,
     ):  # pylint: disable=too-many-arguments
         self.id_pixel = id_pixel
         self.geo_point = GeoPoint(lon, lat, area_surface, speed_intra_stop)
@@ -31,6 +32,19 @@ class Pixel:
         self.drop_by_period = []
         self.stop_by_period = []
         self.k = k
+        self.is_available = is_available
+
+    def __str__(self):
+        return f"Pixel(ID: {self.id_pixel})"
+
+    def set_scenario_data(
+        self, demand_by_period: list[float], drop_by_period: list[float], stop_by_period: list[float]
+    ):  # noqa: E501
+        """Sets the scenario data for the pixel."""
+        self.demand_by_period = demand_by_period
+        self.drop_by_period = drop_by_period
+        self.stop_by_period = stop_by_period
+        self.is_available = True
 
 
 class Facility:
@@ -56,6 +70,9 @@ class Facility:
         self.cost_sourcing = cost_sourcing
         self.capacity = capacity
         self.is_depot = is_depot
+
+    def __str__(self):
+        return f"Facility(ID: {self.id_facility})"
 
 
 class Vehicle:
@@ -98,3 +115,6 @@ class Vehicle:
         self.speed_linehaul = speed_linehaul
         self.speed_interstop = speed_interstop
         self.k = k
+
+    def __str__(self):
+        return f"Vehicle(ID: {self.id_vehicle}, Type: {self.type_vehicle}, Capacity: {self.capacity})"

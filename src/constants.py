@@ -6,8 +6,8 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT_DIR / "data"
 
 # Paths
-PATH_DATA_SATELLITE = DATA_DIR / "input_satellites.xlsx"
-PATH_DATA_PIXEL = DATA_DIR / "input_pixels.xlsx"
+PATH_DATA_FACILITY = DATA_DIR / "facilities/input_facilities.xlsx"
+PATH_DATA_PIXEL = DATA_DIR / "pixels/input_pixels.xlsx"
 
 # Path root from scenarios
 PATH_ROOT_SCENARIO = DATA_DIR / "scenarios/"
