@@ -7,15 +7,13 @@ from typing import Dict
 import gurobipy as gb
 from gurobipy import GRB, quicksum  # pylint: disable=E0611
 
+from src.constants import TypeOfFlexibility
 from src.utils.classes import Facility
 from src.utils.custom_logger import get_logger
-from utils.instance import Instance
-from utils.scenario import Scenario
+from src.utils.instance import Instance
+from src.utils.scenario import Scenario
 
 logger = get_logger("ExtendedSAAModel")
-
-FLEX_CAPACITY = "flex-capacity"
-FIXED_CAPACITY = "fixed-capacity"
 
 
 @dataclass
@@ -141,7 +139,7 @@ class ExtendedSAAModel:
         """Add variables to model."""
         logger.info("Adding variables to model")
         # 1. add variable Z: binary variable to decide if a facility is operating in a period with a given capacity
-        if self.type_of_flexibility == FLEX_CAPACITY:
+        if self.type_of_flexibility == TypeOfFlexibility.FLEX_CAPACITY.value:
             self.vars.Z = dict(
                 [
                     (
@@ -223,7 +221,7 @@ class ExtendedSAAModel:
         )
 
         # 2. add cost operating facilities
-        if self.type_of_flexibility == FIXED_CAPACITY:
+        if self.type_of_flexibility == TypeOfFlexibility.FIXED_CAPACITY.value:
             self.obj.cost_operating_facilities = quicksum(
                 [
                     round(facility.cost_operation[q][t], 0) * self.vars.Y[(i, q)]
@@ -234,7 +232,7 @@ class ExtendedSAAModel:
                     for n in scenarios.keys()
                 ]
             )
-        elif self.type_of_flexibility == FLEX_CAPACITY:
+        elif self.type_of_flexibility == TypeOfFlexibility.FLEX_CAPACITY.value:
             self.obj.cost_operating_facilities = quicksum(
                 [
                     round(facility.cost_operation[q][t], 0) * self.vars.Z[(i, q, t, n)]
@@ -282,7 +280,7 @@ class ExtendedSAAModel:
         logger.info("Adding constraints to model")
         self.__add_constr_A_1(facilities)
 
-        if self.type_of_flexibility == FLEX_CAPACITY:
+        if self.type_of_flexibility == TypeOfFlexibility.FLEX_CAPACITY.value:
             self.__add_constr_A_2(facilities, scenarios)
             self.__add_constr_A_3(facilities, scenarios)
             # TODO check this constraints (3) ?
@@ -345,7 +343,7 @@ class ExtendedSAAModel:
                 for n, scenario in scenarios.items():
                     fleet_size = scenario.get_fleet_size("facility")
                     name_constraint = f"R_capacity_i{i}_t{t}_n{n}"
-                    if self.type_of_flexibility == FLEX_CAPACITY:
+                    if self.type_of_flexibility == TypeOfFlexibility.FLEX_CAPACITY.value:
                         self.model.addConstr(
                             quicksum(
                                 [
@@ -363,7 +361,7 @@ class ExtendedSAAModel:
                             <= 0,
                             name=name_constraint,
                         )
-                    elif self.type_of_flexibility == FIXED_CAPACITY:
+                    elif self.type_of_flexibility == TypeOfFlexibility.FIXED_CAPACITY.value:
                         self.model.addConstr(
                             quicksum(
                                 [

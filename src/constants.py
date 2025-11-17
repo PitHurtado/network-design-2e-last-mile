@@ -1,9 +1,11 @@
 """Constants for the application."""
 
+from enum import Enum
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT_DIR / "data"
+RESULTS_DIR = ROOT_DIR / "results"
 
 # Paths
 PATH_DATA_FACILITY = DATA_DIR / "facilities/input_facilities.xlsx"
@@ -19,3 +21,10 @@ PATH_BEST_SOLUTION_SAA = PATH_ROOT_SCENARIO / "best_solution_saa/"
 PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE = DATA_DIR / "distances/input_matrix_distance_facilities_pixels.xlsx"
 
 PATH_DATA_DISTANCES_FACILITIES = DATA_DIR / "distances/input_matrix_distance_dc_facilities.xlsx"
+
+
+class TypeOfFlexibility(Enum):
+    """Enum for types of flexibility."""
+
+    FLEX_CAPACITY = "flex_capacity"
+    FIXED_CAPACITY = "fixed_capacity"

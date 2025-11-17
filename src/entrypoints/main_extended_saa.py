@@ -81,7 +81,7 @@ class Main:
 
         results.update(self.get_information())
 
-        path_file_output = self.folder_path + f"solution_extended_saa_model_{self.instance.id_instance}.json"
+        path_file_output = self.folder_path / f"solution_extended_saa_model_{self.instance.id_instance}.json"
         with open(path_file_output, "w") as file:
             file.write(json.dumps(results, indent=4))
 
