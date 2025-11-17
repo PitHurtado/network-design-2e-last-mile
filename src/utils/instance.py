@@ -3,7 +3,7 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from src.constants import PATH_SAMPLING_SCENARIO
 from src.data.etl import get_facilities, get_scenario, get_vehicles
@@ -23,6 +23,7 @@ class ConfigurationInstance:
     type_of_flexibility: str
     N: int
     is_evaluation: bool
+    sampling_id: Optional[int]
 
 
 class Instance:
@@ -36,6 +37,7 @@ class Instance:
         periods: int,
         N: int,
         is_evaluation: bool,
+        sampling_id: Optional[int] = None,
     ):  # pylint: disable=too-many-arguments
 
         self.id_instance = id_instance
@@ -44,6 +46,7 @@ class Instance:
             type_of_flexibility=type_of_flexibility,
             N=N,
             is_evaluation=is_evaluation,
+            sampling_id=sampling_id,
         )
         self.periods = periods
 
@@ -66,6 +69,7 @@ class Instance:
         return (
             f"---- Instance ----\n"
             f"ID of the instance: {self.id_instance}\n"
+            f"ID scenario sample: {self.scenarios_ids}\n"
             f"Is continuous X: {self.config.is_continuous_x}\n"
             f"Type of flexibility: {self.config.type_of_flexibility}\n"
             f"Periods: {self.periods}\n"
@@ -82,6 +86,12 @@ class Instance:
         id_scenarios_sample = []
         if self.config.is_evaluation:
             path_json = PATH_SAMPLING_SCENARIO / "evaluation.json"
+            if os.path.exists(path_json):
+                with open(path_json, "r") as file:
+                    data = json.load(file)
+                    id_scenarios_sample = data["id_scenarios_sample"]
+        elif self.config.sampling_id is not None:
+            path_json = PATH_SAMPLING_SCENARIO / f"sampling_{self.config.sampling_id}.json"
             if os.path.exists(path_json):
                 with open(path_json, "r") as file:
                     data = json.load(file)
