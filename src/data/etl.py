@@ -28,7 +28,7 @@ def get_distance_facility_delivery_zone() -> dict:
         df = pd.read_excel(PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE)
         for _, row in df.iterrows():
             i = row["id_facility"].upper()
-            j = row["id_pixel"].upper()
+            j = f'{row["layer"].upper()}-{row["pixel"]}'
             distance = row["distance"]
             distance_facility_delivery_zone[(i, j)] = distance
 
@@ -100,7 +100,7 @@ def get_pixels() -> dict[str, Pixel]:
         pixels = {}
         df = pd.read_excel(PATH_DATA_PIXEL)
         for _, row in df.iterrows():
-            id_pixel = str(row["id_pixel"]).upper()
+            id_pixel = f'{row["layer"].upper()}-{row["pixel"]}'
             lon = row["lon"]
             lat = row["lat"]
             area_surface = row["area_surface"]
