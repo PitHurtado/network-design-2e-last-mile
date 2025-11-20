@@ -9,7 +9,12 @@ logger = get_logger("Run Extended SAA")
 if __name__ == "__main__":
     # (1) Generate instance:
     logger.info("Generating instances")
-    configuration = [(1, True, TypeOfFlexibility.FLEX_CAPACITY.value)]
+    configuration = [
+        (1, True, TypeOfFlexibility.FLEX_CAPACITY.value),
+        (1, False, TypeOfFlexibility.FLEX_CAPACITY.value),
+        (1, True, TypeOfFlexibility.FIXED_CAPACITY.value),
+        (1, False, TypeOfFlexibility.FIXED_CAPACITY.value),
+    ]
     FOLDER_PATH = RESULTS_DIR / "extended_saa"
     logger.info(f"Total configuration to be solved: {len(configuration)}")
 
@@ -26,7 +31,7 @@ if __name__ == "__main__":
             #     max_run_time=60,
             # )
             main = Main(
-                id_instance="1",
+                id_instance=f"1_{config[1]}_{config[2]}",
                 folder_path=FOLDER_PATH,
                 configuration=config,
                 is_evaluation=False,
