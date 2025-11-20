@@ -28,7 +28,7 @@ def get_distance_facility_delivery_zone() -> dict:
         df = pd.read_excel(PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE)
         for _, row in df.iterrows():
             i = row["id_facility"].upper()
-            j = f'{row["layer"].upper()}-{row["pixel"]}'
+            j = f'{row["layer"].upper()}-{int(row["pixel"])}'
             distance = row["distance"]
             distance_facility_delivery_zone[(i, j)] = distance
 
@@ -100,7 +100,7 @@ def get_pixels() -> dict[str, Pixel]:
         pixels = {}
         df = pd.read_excel(PATH_DATA_PIXEL)
         for _, row in df.iterrows():
-            id_pixel = f'{row["layer"].upper()}-{row["pixel"]}'
+            id_pixel = f'{row["layer"].upper()}-{int(row["pixel"])}'
             lon = row["lon"]
             lat = row["lat"]
             area_surface = row["area_surface"]
@@ -129,7 +129,7 @@ def get_scenario(id_scenario: str) -> dict[str, Pixel]:
         if os.path.exists(path_scenario):
             with open(path_scenario, "r") as file:
                 data = json.load(file)
-                logger.info(f"Scenario data loaded: {data}")
+                logger.info(f"Scenario data with {len(data['pixels'])} pixels loaded.")
                 for pixel_data in data["pixels"]:
                     id_pixel = pixel_data["id_pixel"]
                     demand_by_period = pixel_data["demand"]
