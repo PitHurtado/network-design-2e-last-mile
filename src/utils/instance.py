@@ -37,10 +37,11 @@ class Instance:
         periods: int,
         N: int,
         is_evaluation: bool,
-        id_sampling: Optional[int] = None,
+        id_sampling: Optional[str] = None,
     ):  # pylint: disable=too-many-arguments
 
         self.id_instance = id_instance
+        self.id_sampling = id_sampling
         self.config = ConfigurationInstance(
             is_continuous_var_x=is_continuous_var_x,
             type_of_flexibility=type_of_flexibility,
@@ -84,8 +85,8 @@ class Instance:
     def __get_scenarios_sample(self) -> List[str]:
         """Get the scenarios for sample."""
         id_scenarios_sample = []
-        if self.config.is_evaluation:
-            path_json = PATH_SAMPLING_SCENARIO / "evaluation.json"
+        if self.config.is_evaluation:  # TODO --> cambiar a expected
+            path_json = PATH_SAMPLING_SCENARIO / "expected.json"
             if os.path.exists(path_json):
                 with open(path_json, "r") as file:
                     data = json.load(file)
@@ -97,6 +98,7 @@ class Instance:
                     data = json.load(file)
                     id_scenarios_sample = data["id_scenarios_sample"]
         else:
+            # TODO ---> remplazar por muestreo aleatorio real
             id_scenarios_sample = list(map(str, range(1, self.config.N + 1)))  # random.sample(range(500), self.N)
         return id_scenarios_sample
 
@@ -173,7 +175,7 @@ class Instance:
 if __name__ == "__main__":
     logger.info("Testing Instance Class")
     instance = Instance(
-        id_instance="1",
+        id_instance="expected",
         is_continuous_var_x=True,
         type_of_flexibility="Flex-Capacity",
         periods=12,
