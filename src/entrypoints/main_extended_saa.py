@@ -19,8 +19,8 @@ class Main:
         id_instance: str,
         folder_path: str,
         configuration: tuple,
-        is_evaluation: bool,
         max_run_time: int,
+        is_evaluation: bool = False,
         id_sampling: Optional[int] = None,
     ):
         self.folder_path = folder_path
@@ -68,7 +68,6 @@ class Main:
 
         # (3) Save results:
         results = {
-            "Y": str({keys: value.X for keys, value in solver.model._Y.items()}),
             "objective": solver.obj.cost_total.getValue(),
             "cost_installation_facilities": solver.obj.cost_installation_facilities.getValue(),
             "cost_operating_facilities": solver.obj.cost_operating_facilities.getValue(),
@@ -77,11 +76,17 @@ class Main:
             "scenarios": self.instance.scenarios_ids,
             # "Instance information": self.get_information(run_time), # MUST BE UNPACKED
             "Solver information": solver_metrics,
+            "Y": {str(keys): value.X for keys, value in solver.model._Y.items()},
+            "X": {str(keys): value.X for keys, value in solver.model._X.items()},
+            "Z": {str(keys): value.X for keys, value in solver.model._Z.items()},
+            "W": {str(keys): value.X for keys, value in solver.model._W.items()},
         }
 
         results.update(self.get_information())
 
-        path_file_output = self.folder_path / f"solution_extended_saa_model_{self.instance.id_instance}.json"
+        path_file_output = (
+            self.folder_path / f"extended_saa_{self.instance.id_instance}_{self.instance.id_sampling}.json"
+        )  # noqa E501
         with open(path_file_output, "w") as file:
             file.write(json.dumps(results, indent=4))
 
@@ -96,7 +101,8 @@ class Main:
         ) = self.configuration
 
         info_combination = {
-            "id": self.instance.id_instance,
+            "id_sampling": self.instance.id_sampling,
+            "configuration": self.instance.id_instance,
             "N": N,
             "is_continuous_x": is_continuous_x,
             "type_of_flexibility": type_of_flexibility,
