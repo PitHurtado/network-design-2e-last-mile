@@ -103,8 +103,8 @@ class ContinuousApproximation:
                                     v=v,
                                     t=t,
                                 )
-                                costs["facility"][(i, j, v, t, w)] = round(cost, 0)
-                                fleet_sizes["facility"][(i, j, v, t, w)] = round(fleet_size, 1)
+                                costs["facility"][(i, j, v, t, w)] = round(cost, 5)
+                                fleet_sizes["facility"][(i, j, v, t, w)] = round(fleet_size, 5)
                                 parameters["facility"][(i, j, v, t, w)] = params
                         cost, fleet_size, params = self.compute_approximation_parameters(
                             area=area,
@@ -116,8 +116,8 @@ class ContinuousApproximation:
                             v="large",
                             t=t,
                         )
-                        costs["dc"][(j, "large", t, w)] = round(cost, 0)
-                        fleet_sizes["dc"][(j, "large", t, w)] = round(fleet_size, 1)
+                        costs["dc"][(j, "large", t, w)] = round(cost, 5)
+                        fleet_sizes["dc"][(j, "large", t, w)] = round(fleet_size, 5)
                         parameters["dc"][(j, "large", t, w)] = params
             scenario.set_costs(costs)
             scenario.set_fleet_size(fleet_sizes)
@@ -287,8 +287,8 @@ class ContinuousApproximation:
         cost_total = cost_fixed + cost_variable
 
         return (
-            round(cost_total, 2),
-            round(average_fleet_size, 2),
+            round(cost_total, 5),
+            round(average_fleet_size, 5),
             {
                 "T_max": T_max,
                 "effective_capacity": effective_capacity,
