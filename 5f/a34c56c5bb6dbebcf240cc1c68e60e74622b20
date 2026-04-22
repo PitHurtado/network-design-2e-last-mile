@@ -1,0 +1,28 @@
+README.md
+  c1db5dbd82d1347d 1-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "5fa34c56c5bb6dbebcf240cc1c68e60e74622b20",
+  "prompts": {
+    "c1db5dbd82d1347d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "22859cf2-070e-4a29-88af-2b37fe207c44",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "PitHurtado",
+      "messages": [],
+      "total_additions": 184,
+      "total_deletions": 30,
+      "accepted_lines": 184,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_e0b2256f67097c": {
+      "author": "PitHurtado"
+    }
+  }
+}
