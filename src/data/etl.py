@@ -25,7 +25,7 @@ def get_distance_facility_delivery_zone() -> dict:
     try:
         distance_facility_delivery_zone = {}
 
-        df = pd.read_excel(PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE)
+        df = pd.read_excel(PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE, engine="openpyxl")
         for _, row in df.iterrows():
             i = row["id_facility"].upper()
             j = f'{row["layer"].upper()}-{int(row["pixel"])}'
@@ -43,7 +43,7 @@ def get_distance_facilities() -> dict:
     try:
         distance_facilities = {}
 
-        df = pd.read_excel(PATH_DATA_DISTANCES_FACILITIES)
+        df = pd.read_excel(PATH_DATA_DISTANCES_FACILITIES, engine="openpyxl")
         for _, row in df.iterrows():
             i = row["id_facility"].upper()
             distance = row["distance"]
@@ -69,7 +69,7 @@ def get_facilities() -> dict[str, Facility]:
     try:
         facilities = {}
 
-        df = pd.read_excel(PATH_DATA_FACILITY)
+        df = pd.read_excel(PATH_DATA_FACILITY, engine="openpyxl")
         for _, row in df.iterrows():
             id_facility = row["id_facility"].upper()
             lon = row["lon"]
@@ -98,7 +98,7 @@ def get_pixels() -> dict[str, Pixel]:
     """Get pixels from an external file."""
     try:
         pixels = {}
-        df = pd.read_excel(PATH_DATA_PIXEL)
+        df = pd.read_excel(PATH_DATA_PIXEL, engine="openpyxl")
         for _, row in df.iterrows():
             id_pixel = f'{row["layer"].upper()}-{int(row["pixel"])}'
             lon = row["lon"]

@@ -38,10 +38,13 @@ class Instance:
         N: int,
         is_evaluation: bool,
         id_sampling: Optional[str] = None,
+        use_euclidean_distance: bool = False,
+        facilities_subset: Optional[List[str]] = None,
     ):  # pylint: disable=too-many-arguments
 
         self.id_instance = id_instance
         self.id_sampling = id_sampling
+        self.use_euclidean_distance = use_euclidean_distance
         self.config = ConfigurationInstance(
             is_continuous_var_x=is_continuous_var_x,
             type_of_flexibility=type_of_flexibility,
@@ -58,6 +61,8 @@ class Instance:
         # Read vehicles and facilities
         self.vehicles: Dict[str, Vehicle] = self.__read_vehicles()
         self.facilities: Dict[str, Facility] = self.__read_facilities()
+        if facilities_subset is not None:
+            self.facilities = {k: v for k, v in self.facilities.items() if k in facilities_subset}
 
         # Read the demand (pixels) of each scenario
         self.scenarios: Dict[str, Scenario] = self.__read_scenarios()
@@ -153,6 +158,7 @@ class Instance:
             facilities=self.facilities,
             vehicles=self.vehicles,
             scenarios=self.scenarios,
+            use_euclidean_distance=self.use_euclidean_distance,
         )
         scenarios_with_parameters = ca.run_continuous_approximation()
         self.scenarios = scenarios_with_parameters

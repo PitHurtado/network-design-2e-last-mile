@@ -58,9 +58,11 @@ class ContinuousApproximation:
         scenarios: dict[str, Scenario],
         facilities: dict[str, Facility],
         vehicles: dict[str, Vehicle],
+        use_euclidean_distance: bool = False,
         show_logs=False,
     ):
         self.__show_logs = show_logs
+        self.use_euclidean_distance = use_euclidean_distance
         self.config = ApproximationConfiguration(
             scenarios=scenarios,
             facilities=facilities,
@@ -128,9 +130,36 @@ class ContinuousApproximation:
         return self.config.scenarios
 
     def __compute_distances(self):
-        """Load distance data from external files."""
-        self.distances.facility_delivery_zone = get_distance_facility_delivery_zone()
+        """Load or compute distances between facilities and pixels."""
+        if self.use_euclidean_distance:
+            self.distances.facility_delivery_zone = self.__compute_euclidean_distances()
+        else:
+            self.distances.facility_delivery_zone = get_distance_facility_delivery_zone()
         self.distances.facilities = get_distance_facilities()
+
+    def __compute_euclidean_distances(self) -> dict:
+        """Override facility-to-pixel distances with haversine; keep DC distances from Excel."""
+        def _haversine(lon1, lat1, lon2, lat2):
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            a = (math.sin((math.radians(lat2 - lat1)) / 2) ** 2
+                 + math.cos(phi1) * math.cos(phi2) * math.sin((math.radians(lon2 - lon1)) / 2) ** 2)
+            return 6371.0 * 2 * math.asin(math.sqrt(a))
+
+        # Start with Excel distances (covers DC-to-pixel entries)
+        distances = get_distance_facility_delivery_zone()
+
+        all_pixels = {}
+        for scenario in self.config.scenarios.values():
+            all_pixels.update(scenario.pixels)
+
+        # Override only facility-to-pixel pairs with haversine
+        for i, facility in self.config.facilities.items():
+            for j, pixel in all_pixels.items():
+                distances[(i, j)] = _haversine(
+                    facility.geo_point.lon, facility.geo_point.lat,
+                    pixel.geo_point.lon, pixel.geo_point.lat,
+                )
+        return distances
 
     def compute_approximation_parameters(
         self,
