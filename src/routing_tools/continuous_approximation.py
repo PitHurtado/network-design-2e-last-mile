@@ -125,7 +125,7 @@ class ContinuousApproximation:
             scenario.set_fleet_size(fleet_sizes)
             scenario.set_parameters(parameters)
 
-        # self._add_first_echelon_costs()  # Snoeck and Winkenbach (2020) use a per-parcel cost
+        self._add_first_echelon_costs()
 
         return self.config.scenarios
 
@@ -340,27 +340,40 @@ class ContinuousApproximation:
             },
         )
 
-    # def _add_first_echelon_costs(self):
-    #     """Add first echelon costs to other vehicle costs as per Snoeck and Winkenbach (2020)."""
-    #     for w, scenario in self.config.scenarios.items():
-    #         for key_delivery_zone in scenario.demands.keys():
-    #             j = key_delivery_zone
-    #             for i, facility in self.config.facilities.items():
-    #                 if not facility.is_depot:
-    #                     for t in range(self.config.periods):
-    #                         first_echelon_cost = self.costs[(i, j, "first_echelon_truck", t, w)]
-    #                         line_haul_distance = self.parameters[(i, j, "first_echelon_truck", t, w)][
-    #                             "distance_to_centroid"
-    #                         ]  # noqa: E501
-    #                         first_echelon_vehicles = self.parameters[(i, j, "first_echelon_truck", t, w)][
-    #                             "average_fleet_size"
-    #                         ]  # noqa: E501
+    def _add_first_echelon_costs(self) -> None:
+        """Add DC-to-satellite costs to satellite-to-pixel costs per Snoeck and Winkenbach (2020).
 
-    #                         for v in self.config.vehicles.keys():
-    #                             if v not in ("first_echelon_truck"):
-    #                                 self.costs[(i, j, v, t, w)] = self.costs[(i, j, v, t, w)] + first_echelon_cost
-    #                                 self.parameters[(i, j, v, t, w)]["line_haul_distance"] = line_haul_distance
-    #                                 self.parameters[(i, j, v, t, w)]["first_echelon_vehicles"] = first_echelon_vehicles
+        Mutates scenario.costs["facility"][(i, j, v, t, w)] in-place for all
+        non-first-echelon vehicles. Also backfills "line_haul_distance" and
+        "first_echelon_vehicles" in parameters for downstream analysis.
+        Must be called after run_continuous_approximation() completes all scenarios.
+        """
+        for w, scenario in self.config.scenarios.items():
+            for key_delivery_zone, pixel in scenario.pixels.items():
+                j = key_delivery_zone
+                for t in range(self.config.periods):
+                    if pixel.demand_by_period[t] <= 0:
+                        continue
+
+                    for i, facility in self.config.facilities.items():
+                        if facility.is_depot:
+                            continue
+
+                        fe_key = (i, j, "first_echelon_truck", t, w)
+                        first_echelon_cost = scenario.costs["facility"][fe_key]
+                        line_haul_distance = scenario.parameters["facility"][fe_key]["distance_to_centroid"]
+                        first_echelon_vehicles = scenario.parameters["facility"][fe_key]["average_fleet_size"]
+
+                        for v in self.config.vehicles.keys():
+                            if v == "first_echelon_truck":
+                                continue
+
+                            v_key = (i, j, v, t, w)
+                            scenario.costs["facility"][v_key] = round(
+                                scenario.costs["facility"][v_key] + first_echelon_cost, 5
+                            )
+                            scenario.parameters["facility"][v_key]["line_haul_distance"] = line_haul_distance
+                            scenario.parameters["facility"][v_key]["first_echelon_vehicles"] = first_echelon_vehicles
 
 
 if __name__ == "__main__":

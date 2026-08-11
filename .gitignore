@@ -3,6 +3,10 @@
 # website: http://jupyter.org/
 *.json
 
+# ignore results
+results/*
+data/*
+
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 

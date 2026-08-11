@@ -61,6 +61,7 @@ def get_vehicles() -> dict[str, Vehicle]:
     return {
         "small": Vehicle(**SMALL_CONFIG),
         "large": Vehicle(**LARGE_CONFIG),
+        "first_echelon_truck": Vehicle(**LARGE_CONFIG),
     }
 
 
