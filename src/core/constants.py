@@ -27,11 +27,19 @@ PATH_SHAPE_PARAMS = PATH_ROOT_SCENARIO / "shape_params.json"
 # readable and avoids pulling in a parquet engine.
 PATH_PANEL_MONTHLY = PATH_ROOT_SCENARIO / "panel_monthly.csv"
 PATH_GENERATED_SCENARIOS = PATH_ROOT_SCENARIO / "generated"
+DEFAULT_SCENARIO_VERSION = "v3"
+SCENARIO_SETS = ("optimization", "validation", "expected", "annual_expected")
 
 
-def scenario_dir(regime: str) -> Path:
-    """Directory holding the generated scenarios for a demand regime."""
-    return PATH_GENERATED_SCENARIOS / regime
+def scenario_dir(
+    regime: str,
+    version: str = DEFAULT_SCENARIO_VERSION,
+    scenario_set: str = "optimization",
+) -> Path:
+    """Directory holding one immutable, purpose-specific scenario set."""
+    if scenario_set not in SCENARIO_SETS:
+        raise ValueError(f"Unknown scenario set {scenario_set!r}; expected one of {SCENARIO_SETS}.")
+    return PATH_GENERATED_SCENARIOS / version / regime / scenario_set
 
 
 # ── Pixel grid geometry ───────────────────────────────────────────────────────

@@ -174,7 +174,7 @@
   ],
   "layer_drop_threshold": 11.62,
   "seed_base": 20260908,
-  "calibrated_n_scenarios": 50,
+  "calibrated_n_scenarios": 100,
   "spatial": {
     "n_pixels_correlogram": 148,
     "model": "exponential+plateau",
@@ -1148,18 +1148,18 @@
   "regimes": {
     "low": {
       "target_period_demand": 20465.0,
-      "multiplier": 0.4552769903703987,
-      "realized_period_demand": 20464.976135930276
+      "multiplier": 0.44581760453029856,
+      "realized_period_demand": 20464.967796511486
     },
     "normal": {
       "target_period_demand": 32678.0,
-      "multiplier": 0.7269931084205025,
-      "realized_period_demand": 32679.1486647061
+      "multiplier": 0.7118839957589982,
+      "realized_period_demand": 32678.086883690463
     },
     "high": {
       "target_period_demand": 48320.0,
-      "multiplier": 1.0748862880473702,
-      "realized_period_demand": 48320.410336924804
+      "multiplier": 1.0526815885819931,
+      "realized_period_demand": 48319.86095556588
     }
   },
   "base_period_demand": 45910.02666694756,

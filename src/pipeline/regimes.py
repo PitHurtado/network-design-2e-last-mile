@@ -72,9 +72,10 @@ def calibrate_all(
     base_total: float,
     seed_base: int,
     n_scenarios: int,
+    seeds: list | None = None,
 ) -> dict:
     """Calibrate every regime in `REGIME_TARGETS` against the generation seeds."""
-    seeds = spawn_seeds(seed_base, n_scenarios)
+    seeds = seeds or spawn_seeds(seed_base, n_scenarios)
     return {
         regime: calibrate_multiplier(target=target, total_for=total_for, seeds=seeds, base_total=base_total)
         for regime, target in REGIME_TARGETS.items()

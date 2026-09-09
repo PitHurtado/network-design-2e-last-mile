@@ -46,7 +46,7 @@ paper:
 | `data/raw_pixel/input_pixels.xlsx` | píxeles del modelo: `area_surface`, `speed_intra_stop` | sí |
 | `data/scenarios/shape_params.json` | **parámetros ajustados: la entrada reproducible** | sí |
 | `data/scenarios/panel_monthly.csv` | panel derivado (caché) | no |
-| `data/scenarios/generated/{low,normal,high}/` | escenarios generados | no |
+| `data/scenarios/generated/<versión>/<régimen>/<set>/` | escenarios generados versionados | no |
 
 ### 2.1 El fan-out del archivo crudo
 
@@ -212,13 +212,37 @@ arriba en los píxeles chicos.
 
 ### 4.4 Escenarios deterministas
 
-Se emiten dos, con nombre explícito:
+Se emite **`expected`**: todos los factores en su **media** (= 1), con 12 períodos. Es
+el escenario de valor esperado, el que corresponde usar para EV/VSS. Su agregado
+`annual_expected` se guarda por separado como promedio anual descriptivo.
 
-- **`scenario_expected.json`** — todos los factores en su **media** (= 1). Es el escenario
-  de valor esperado, el que corresponde usar para EV/VSS.
-- **`scenario_median.json`** — todos los factores en su **mediana** (`exp(−σ²/2)`).
+### 4.5 Sets, versiones, semillas e identificadores
 
-Los dos se documentan porque no son iguales, y confundirlos fue el defecto 4.
+Cada corrida se guarda sin mezclar propósitos en:
+
+```
+data/scenarios/generated/<versión>/<régimen>/<set>/
+```
+
+Para cada régimen se generan cuatro sets: `optimization` (30 escenarios simulados),
+`validation` (100 simulados independientes), `expected` (un escenario de 12 períodos
+con todos los shocks en su media) y `annual_expected` (un único período que es el
+promedio de los 12 períodos de `expected`).
+
+Los IDs son canónicos y estables, por ejemplo `v3-normal-optimization-001`; el orden
+de uso está explícitamente en `manifest.json`, nunca se infiere del orden de archivos.
+Los sets simulados usan `SeedSequence([seed_base, set_code]).spawn(index)`, con códigos
+30 y 100 para optimización y validación. Así los sets no comparten draws, y el mismo
+índice de los tres regímenes sí comparte el shock base para permitir comparaciones.
+
+Cada manifest guarda la versión, los IDs, la semilla, el esquema de semillas, los
+factores de régimen y el SHA-256 de `shape_params.json`. Para repetir una corrida se
+usan el mismo `--version`, `--seed-base`, parámetros y tamaños; para no sobrescribir un
+artefacto publicado se debe usar una etiqueta de versión nueva.
+
+`annual_expected` es un artefacto descriptivo de un período. Sus `stop` pueden ser
+fraccionarios al ser promedios y **no** pertenece al contrato de optimización ni puede
+pasarse al modelo, que exige exactamente 12 períodos.
 
 ---
 
@@ -275,8 +299,8 @@ El loader (`src/core/inputs.py`) lee **solo** `data["pixels"]`, y de cada píxel
 | `drop` | `list[float]`, **> 0** | 12 |
 | `demand` | `list[float]`, `== stop × drop` | 12 |
 
-`id_scenario` y `type` se escriben pero **nunca se leen**: la identidad sale del nombre del
-archivo. `k`, `lon`, `lat` y `area_surface` no son parte del contrato — vienen de
+`id_scenario` y `type` se escriben y se conservan en el manifest del set. El optimizador
+lee esos IDs canónicos desde el manifest, no desde el orden de archivos. `k`, `lon`, `lat` y `area_surface` no son parte del contrato — vienen de
 `input_pixels.xlsx`.
 
 **Por qué los invariantes son duros:** la CA solo escribe claves de costo cuando
@@ -296,7 +320,7 @@ poetry shell
 
 python -m src.pipeline.cli.build_panel          # raw -> panel mensual
 python -m src.pipeline.cli.fit_params --n 50    # panel -> shape_params.json
-python -m src.pipeline.cli.generate --all --n 50
+python -m src.pipeline.cli.generate --all --version v3
 python -m src.pipeline.cli.analyze              # reporte de validación
 python -m src.pipeline.cli.explore              # explorador comparativo
 python -m src.optimization.cli.verify_end_to_end --n 3   # CA + Gurobi
@@ -306,8 +330,8 @@ Si solo cambia la política de régimen y no se dispone del panel histórico, se
 recalibrar desde el `shape_params.json` persistido:
 
 ```bash
-python -m src.pipeline.cli.recalibrate_regimes --n 50
-python -m src.pipeline.cli.generate --all --n 50
+python -m src.pipeline.cli.recalibrate_regimes --validation-n 100
+python -m src.pipeline.cli.generate --all --version v3
 python -m src.pipeline.cli.analyze
 python -m src.pipeline.cli.explore
 ```

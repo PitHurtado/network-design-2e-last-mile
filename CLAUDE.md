@@ -56,13 +56,14 @@ poetry shell        # then run the module commands below directly
 ```bash
 python -m src.pipeline.cli.build_panel            # raw events -> monthly panel
 python -m src.pipeline.cli.fit_params --n 50      # panel -> shape_params.json
-python -m src.pipeline.cli.generate --all --n 50  # params -> scenarios per regime
+python -m src.pipeline.cli.generate --all --version v3  # params -> versioned scenario sets
 python -m src.pipeline.cli.analyze                # validation report (exit != 0 on failure)
 python -m src.pipeline.cli.explore                # exploratory report
 ```
 
-`--n` must match between `fit_params` and `generate`: the regime multipliers are
-calibrated against the exact seed sequence the generator consumes.
+`--n` must match between `fit_params` and `recalibrate_regimes`: regime multipliers
+are calibrated against the exact seed sequence used for calibration. Generation emits
+30 optimization and 100 validation scenarios per regime by default.
 
 ### Optimization (`src/optimization/`)
 

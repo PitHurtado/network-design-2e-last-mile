@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from src.core.constants import N_PERIODS
 from src.core.entities import Facility, Vehicle
-from src.core.inputs import get_facilities, get_scenario, get_vehicles
+from src.core.inputs import generated_scenario_ids, get_facilities, get_scenario, get_vehicles
 from src.core.logging import get_logger
 from src.optimization.routing.continuous_approximation import ContinuousApproximation
 from src.optimization.scenario import Scenario
@@ -41,11 +41,15 @@ class Instance:
         regime: str = "normal",
         periods: int = N_PERIODS,
         scenario_ids: Optional[List[str]] = None,
+        scenario_version: Optional[str] = None,
+        scenario_set: str = "optimization",
         use_euclidean_distance: bool = False,
         facilities_subset: Optional[List[str]] = None,
     ):  # pylint: disable=too-many-arguments
         self.id_instance = id_instance
         self.regime = regime
+        self.scenario_version = scenario_version
+        self.scenario_set = scenario_set
         self.use_euclidean_distance = use_euclidean_distance
         self.config = ConfigurationInstance(
             is_continuous_var_x=is_continuous_var_x,
@@ -66,7 +70,7 @@ class Instance:
         if facilities_subset is not None:
             self.facilities = {k: v for k, v in self.facilities.items() if k in facilities_subset}
 
-        self.scenario_ids_requested = scenario_ids or [str(i) for i in range(1, N + 1)]
+        self.scenario_ids_requested = scenario_ids or generated_scenario_ids(regime, N, scenario_version, scenario_set)
         self.scenarios: Dict[str, Scenario] = self.__read_scenarios()
         self.scenarios_ids = list(self.scenarios)
         if not self.scenarios:
@@ -94,7 +98,9 @@ class Instance:
         """Load each requested scenario. Keys are always the string form of the id."""
         scenarios = {}
         for id_scenario in self.scenario_ids_requested:
-            pixels = get_scenario(str(id_scenario), regime=self.regime)
+            pixels = get_scenario(
+                str(id_scenario), regime=self.regime, version=self.scenario_version, scenario_set=self.scenario_set
+            )
             scenarios[str(id_scenario)] = Scenario(id_scenario=str(id_scenario), pixels=pixels, periods=self.periods)
         logger.info(f"Loaded {len(scenarios)} scenarios of regime '{self.regime}'.")
         return scenarios

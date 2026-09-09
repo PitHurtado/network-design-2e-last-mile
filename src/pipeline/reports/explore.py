@@ -44,7 +44,6 @@ def load_all(regimes: list[str]) -> dict[str, pd.DataFrame]:
     data = {}
     for regime in regimes:
         frame = load_generated(regime)
-        frame = frame[frame["id_scenario"].astype(str).str.fullmatch(r"\d+")].copy()
         frame = frame.merge(centroids, on="id_pixel", how="left")
         if frame["layer"].isna().any():
             raise ValueError(f"[{regime}] pixels missing from pixel_centroids()")

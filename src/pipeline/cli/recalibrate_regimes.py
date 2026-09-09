@@ -10,6 +10,8 @@ import argparse
 import json
 from datetime import date
 
+import numpy as np
+
 from src.core.constants import PATH_SHAPE_PARAMS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, REGIME_TARGETS, SEED_BASE
 from src.pipeline.generate import ScenarioGenerator
 from src.pipeline.regimes import calibrate_all
@@ -17,7 +19,7 @@ from src.pipeline.regimes import calibrate_all
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--n", type=int, default=50, help="number of scenarios used for calibration")
+    parser.add_argument("--validation-n", type=int, default=100, help="validation scenarios used for calibration")
     parser.add_argument("--seed-base", type=int, default=SEED_BASE)
     args = parser.parse_args()
 
@@ -33,12 +35,13 @@ def main() -> None:
         total_for=lambda multiplier, rng: generator.mean_period_total(rng, multiplier),
         base_total=generator.base_period_total(),
         seed_base=args.seed_base,
-        n_scenarios=args.n,
+        n_scenarios=args.validation_n,
+        seeds=np.random.SeedSequence([args.seed_base, 100]).spawn(args.validation_n),
     )
     params["version"] = max(int(params.get("version", 0)), 3)
     params["generated_on"] = date.today().isoformat()
     params["seed_base"] = args.seed_base
-    params["calibrated_n_scenarios"] = args.n
+    params["calibrated_n_scenarios"] = args.validation_n
     params["regimes"] = {
         regime: {
             "target_period_demand": REGIME_TARGETS[regime],

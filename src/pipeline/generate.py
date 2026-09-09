@@ -22,13 +22,21 @@ Discreteness enters only through the rounding of `stop`, whose effect on the
 realized correlogram is measured in the analysis report.
 """
 
+import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from src.core.constants import N_PERIODS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, SEED_BASE, scenario_dir
+from src.core.constants import (
+    DEFAULT_SCENARIO_VERSION,
+    N_PERIODS,
+    REGIME_DROP_EXPONENT,
+    REGIME_STOP_EXPONENT,
+    SEED_BASE,
+    scenario_dir,
+)
 from src.core.logging import get_logger
 from src.pipeline.marginals import expected_matrix
 
@@ -208,9 +216,9 @@ class ScenarioGenerator:
         return {"id_scenario": id_scenario, "type": scenario_type, "pixels": pixels}
 
 
-def write_scenario(payload: dict, regime: str, id_scenario) -> Path:
-    """Write one scenario file under the regime's directory."""
-    directory = scenario_dir(regime)
+def write_scenario(payload: dict, regime: str, version: str, scenario_set: str, id_scenario: str) -> Path:
+    """Write one scenario under its immutable version/regime/set directory."""
+    directory = scenario_dir(regime, version, scenario_set)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"scenario_{id_scenario}.json"
     with open(path, "w") as file:
@@ -218,36 +226,87 @@ def write_scenario(payload: dict, regime: str, id_scenario) -> Path:
     return path
 
 
-def generate_regime(
+def scenario_id(version: str, regime: str, scenario_set: str, index: int | None = None) -> str:
+    """Stable, filename-safe identifier; never derived from filesystem ordering."""
+    base = f"{version}-{regime}-{scenario_set}"
+    return base if index is None else f"{base}-{index:03d}"
+
+
+def _seeds(seed_base: int, scenario_set: str, n_scenarios: int) -> list[np.random.SeedSequence]:
+    """Set-specific but regime-independent streams, so regimes are comparable."""
+    set_codes = {"optimization": 30, "validation": 100}
+    return np.random.SeedSequence([seed_base, set_codes[scenario_set]]).spawn(n_scenarios)
+
+
+def _annual_expected_payload(generator: ScenarioGenerator, regime: str, version: str, multiplier: float) -> dict:
+    """One-period annual mean of the deterministic expected scenario, outside the LP contract."""
+    stop, drop = generator.draw(np.random.default_rng(0), multiplier, deterministic="mean")
+    annual_stop = stop.mean(axis=1)
+    annual_demand = (stop * drop).mean(axis=1)
+    annual_drop = annual_demand / annual_stop
+    pixels = [
+        {
+            "id_pixel": id_pixel,
+            "stop": [round(float(annual_stop[i]), 6)],
+            "drop": [round(float(annual_drop[i]), 6)],
+            "demand": [round(float(annual_demand[i]), 6)],
+        }
+        for i, id_pixel in enumerate(generator.pixels)
+    ]
+    return {
+        "id_scenario": scenario_id(version, regime, "annual_expected"),
+        "type": "annual_expected",
+        "periods": 1,
+        "source": "mean over the 12 periods of the expected scenario",
+        "optimization_compatible": False,
+        "pixels": pixels,
+    }
+
+
+def generate_set(
     generator: ScenarioGenerator,
     regime: str,
     multiplier: float,
+    scenario_set: str,
     n_scenarios: int,
+    version: str = DEFAULT_SCENARIO_VERSION,
     seed_base: int = SEED_BASE,
+    params_sha256: str | None = None,
 ) -> dict:
-    """Generate and write `n_scenarios` plus the mean and median variants.
-
-    Seeds come from a `SeedSequence` spawn rather than `seed_base + i`, and the
-    pixel order is the sorted `id_pixel` list, so adding or reordering a pixel does
-    not silently shift every other pixel's draws.
-    """
+    """Generate one reproducible scenario set and its self-describing manifest."""
+    if scenario_set not in {"optimization", "validation", "expected", "annual_expected"}:
+        raise ValueError(f"Unsupported scenario set: {scenario_set}")
     generator.floor_hits = 0
     generator.cells_drawn = 0
-
-    seeds = np.random.SeedSequence(seed_base).spawn(n_scenarios)
     totals = []
-    for index, seed in enumerate(seeds, start=1):
-        rng = np.random.Generator(np.random.PCG64(seed))
-        stop, drop = generator.draw(rng, multiplier)
+    ids = []
+    if scenario_set in {"optimization", "validation"}:
+        for index, seed in enumerate(_seeds(seed_base, scenario_set, n_scenarios), start=1):
+            id_scenario = scenario_id(version, regime, scenario_set, index)
+            rng = np.random.Generator(np.random.PCG64(seed))
+            stop, drop = generator.draw(rng, multiplier)
+            totals.append(float((stop * drop).sum() / N_PERIODS))
+            write_scenario(generator.to_payload(stop, drop, id_scenario, "simulated"), regime, version, scenario_set, id_scenario)
+            ids.append(id_scenario)
+    elif scenario_set == "expected":
+        id_scenario = scenario_id(version, regime, scenario_set)
+        stop, drop = generator.draw(np.random.default_rng(0), multiplier, deterministic="mean")
+        write_scenario(generator.to_payload(stop, drop, id_scenario, "expected"), regime, version, scenario_set, id_scenario)
+        ids.append(id_scenario)
         totals.append(float((stop * drop).sum() / N_PERIODS))
-        write_scenario(generator.to_payload(stop, drop, index, "simulated"), regime, index)
-
-    for variant, label in (("mean", "expected"), ("median", "median")):
-        stop, drop = generator.draw(np.random.default_rng(0), multiplier, deterministic=variant)
-        write_scenario(generator.to_payload(stop, drop, label, label), regime, label)
+    else:
+        id_scenario = scenario_id(version, regime, scenario_set)
+        payload = _annual_expected_payload(generator, regime, version, multiplier)
+        write_scenario(payload, regime, version, scenario_set, id_scenario)
+        ids.append(id_scenario)
+        totals.append(float(sum(pixel["demand"][0] for pixel in payload["pixels"])))
 
     summary = {
+        "schema_version": 1,
+        "version": version,
         "regime": regime,
+        "scenario_set": scenario_set,
+        "scenario_ids": ids,
         "multiplier": multiplier,
         "stop_factor": multiplier**generator.regime_stop_exponent,
         "drop_factor": multiplier**generator.regime_drop_exponent,
@@ -255,8 +314,10 @@ def generate_regime(
             "stop_exponent": generator.regime_stop_exponent,
             "drop_exponent": generator.regime_drop_exponent,
         },
-        "n_scenarios": n_scenarios,
+        "n_scenarios": len(ids),
         "seed_base": seed_base,
+        "seed_scheme": "SeedSequence([seed_base, set_code]).spawn(index); set_code optimization=30, validation=100",
+        "shape_params_sha256": params_sha256,
         "period_total_mean": float(np.mean(totals)),
         "period_total_p10": float(np.quantile(totals, 0.10)),
         "period_total_p90": float(np.quantile(totals, 0.90)),
@@ -264,18 +325,19 @@ def generate_regime(
         "stop_cells_drawn": generator.cells_drawn,
         "stop_floor_share": generator.floor_hits / max(generator.cells_drawn, 1),
         "pixels": len(generator.pixels),
-        "periods": N_PERIODS,
+        "periods": 1 if scenario_set == "annual_expected" else N_PERIODS,
+        "optimization_compatible": scenario_set in {"optimization", "validation", "expected"},
     }
     logger.info(
-        f"[{regime}] {n_scenarios} scenarios | per-period total mean {summary['period_total_mean']:,.0f} "
+        f"[{version}/{regime}/{scenario_set}] {len(ids)} scenarios | mean total {summary['period_total_mean']:,.0f} "
         f"| stop floor hit {summary['stop_floor_share'] * 100:.3f}% of cells"
     )
     return summary
 
 
-def write_manifest(regime: str, manifest: dict) -> Path:
-    """Write the regime manifest next to its scenarios."""
-    directory = scenario_dir(regime)
+def write_manifest(regime: str, version: str, scenario_set: str, manifest: dict) -> Path:
+    """Write a manifest next to the exact set it describes."""
+    directory = scenario_dir(regime, version, scenario_set)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / "manifest.json"
     with open(path, "w") as file:
@@ -284,9 +346,13 @@ def write_manifest(regime: str, manifest: dict) -> Path:
     return path
 
 
-def load_generated(regime: str) -> pd.DataFrame:
-    """Load every generated scenario of a regime into a long DataFrame."""
-    directory = scenario_dir(regime)
+def load_generated(
+    regime: str,
+    version: str = DEFAULT_SCENARIO_VERSION,
+    scenario_set: str = "validation",
+) -> pd.DataFrame:
+    """Load simulated scenarios from a versioned set into a long DataFrame."""
+    directory = scenario_dir(regime, version, scenario_set)
     rows = []
     for path in sorted(directory.glob("scenario_*.json")):
         with open(path) as file:
@@ -306,3 +372,9 @@ def load_generated(regime: str) -> pd.DataFrame:
                     }
                 )
     return pd.DataFrame(rows)
+
+
+def shape_params_digest(params: dict) -> str:
+    """Stable digest stored in manifests to identify the exact source parameters."""
+    encoded = json.dumps(params, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()

@@ -76,7 +76,7 @@ sequence consumed by the generator.
 ```bash
 poetry run python -m src.pipeline.cli.build_panel            # raw events → monthly panel
 poetry run python -m src.pipeline.cli.fit_params --n 50      # panel → shape_params.json
-poetry run python -m src.pipeline.cli.generate --all --n 50  # params → scenarios per regime
+poetry run python -m src.pipeline.cli.generate --all --version v3  # params → versioned scenario sets
 poetry run python -m src.pipeline.cli.analyze                # validation report (exit ≠ 0 on failure)
 poetry run python -m src.pipeline.cli.explore                # exploratory report
 ```
@@ -89,8 +89,8 @@ regime effect in `stop`, 30% in `drop`), regenerate every scenario and rebuild b
 reports:
 
 ```bash
-poetry run python -m src.pipeline.cli.recalibrate_regimes --n 50
-poetry run python -m src.pipeline.cli.generate --all --n 50
+poetry run python -m src.pipeline.cli.recalibrate_regimes --validation-n 100
+poetry run python -m src.pipeline.cli.generate --all --version v3
 poetry run python -m src.pipeline.cli.analyze
 poetry run python -m src.pipeline.cli.explore
 open results/explore_scenarios.html
@@ -99,6 +99,15 @@ open results/explore_scenarios.html
 The explorer compares low/normal/high on a common map scale for demand, stops, or
 drop. It also reports scenario × period distributions, per-pixel variability, and
 period bands for all three measures. `normal` is the reference for relative changes.
+
+Each version is stored as `data/scenarios/generated/<version>/<regime>/<set>/` with a
+manifest containing canonical IDs, seed scheme and a SHA-256 of `shape_params.json`.
+`optimization` has 30 simulated scenarios, `validation` has 100 independent simulated
+scenarios, `expected` has the 12-period mean-shock scenario, and `annual_expected` has
+one annual-average period for descriptive analysis only (it cannot enter the 12-period
+optimizer). Use `--optimization-n`, `--validation-n` and `--seed-base` to create a
+different explicitly labelled version. Existing folders are protected; use
+`--overwrite` only to rebuild the identical version deliberately.
 
 ## Running the models
 

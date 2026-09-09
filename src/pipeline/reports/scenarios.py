@@ -102,7 +102,7 @@ def load_all(regimes: list[str]) -> dict:
     for regime in regimes:
         from src.core.constants import scenario_dir
 
-        with open(scenario_dir(regime) / "manifest.json") as file:
+        with open(scenario_dir(regime, scenario_set="validation") / "manifest.json") as file:
             manifests[regime] = json.load(file)
     return {"params": params, "panel": panel, "generated": generated, "manifests": manifests}
 

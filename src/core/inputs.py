@@ -116,12 +116,45 @@ def get_pixels() -> dict[str, Pixel]:
         raise error
 
 
-def scenario_path(id_scenario: str, regime: str = "normal") -> Path:
-    """Path of a generated scenario file for a given demand regime."""
-    return scenario_dir(regime) / f"scenario_{id_scenario}.json"
+def scenario_path(
+    id_scenario: str,
+    regime: str = "normal",
+    version: str | None = None,
+    scenario_set: str = "optimization",
+) -> Path:
+    """Path of a generated scenario file in a versioned, purpose-specific set."""
+    directory = (
+        scenario_dir(regime, scenario_set=scenario_set) if version is None else scenario_dir(regime, version, scenario_set)
+    )
+    return directory / f"scenario_{id_scenario}.json"
 
 
-def get_scenario(id_scenario: str, regime: str = "normal") -> dict[str, Pixel]:
+def generated_scenario_ids(
+    regime: str,
+    n_scenarios: int,
+    version: str | None = None,
+    scenario_set: str = "optimization",
+) -> list[str]:
+    """Read canonical scenario ids from a set manifest, never from filename order."""
+    directory = (
+        scenario_dir(regime, scenario_set=scenario_set) if version is None else scenario_dir(regime, version, scenario_set)
+    )
+    with open(directory / "manifest.json") as file:
+        manifest = json.load(file)
+    if not manifest["optimization_compatible"]:
+        raise ValueError(f"Scenario set {directory} is not compatible with the 12-period optimizer.")
+    ids = manifest["scenario_ids"]
+    if n_scenarios > len(ids):
+        raise ValueError(f"Requested {n_scenarios} scenarios but {directory} contains {len(ids)}.")
+    return ids[:n_scenarios]
+
+
+def get_scenario(
+    id_scenario: str,
+    regime: str = "normal",
+    version: str | None = None,
+    scenario_set: str = "optimization",
+) -> dict[str, Pixel]:
     """Get scenario pixels from an external file.
 
     Only pixels present in both the scenario file and `input_pixels.xlsx` are
@@ -129,7 +162,7 @@ def get_scenario(id_scenario: str, regime: str = "normal") -> dict[str, Pixel]:
     mismatch is logged as a warning and counted rather than passing silently.
     """
     pixels = get_pixels()
-    path = scenario_path(id_scenario, regime)
+    path = scenario_path(id_scenario, regime, version, scenario_set)
     if not path.exists():
         logger.error(f"Scenario file {path} not found.")
         raise FileNotFoundError(f"Scenario file {path} not found.")
@@ -157,5 +190,5 @@ def get_scenario(id_scenario: str, regime: str = "normal") -> dict[str, Pixel]:
     if missing:
         logger.warning(f"{missing} grid pixels have no data in {path.name} and were excluded.")
 
-    logger.info(f"Scenario {id_scenario} ({regime}): {len(available)} pixels loaded.")
+    logger.info(f"Scenario {id_scenario} ({regime}/{scenario_set}): {len(available)} pixels loaded.")
     return available
