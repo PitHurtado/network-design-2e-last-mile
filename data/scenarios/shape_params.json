@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "generated_on": "2026-09-08",
+  "version": 3,
+  "generated_on": "2026-09-09",
   "n_periods": 12,
   "base_year": 2022,
   "pixels": [
@@ -1148,20 +1148,24 @@
   "regimes": {
     "low": {
       "target_period_demand": 20465.0,
-      "multiplier": 0.4553469413531052,
-      "realized_period_demand": 20465.04032283094
+      "multiplier": 0.4552769903703987,
+      "realized_period_demand": 20464.976135930276
     },
     "normal": {
       "target_period_demand": 32678.0,
-      "multiplier": 0.7268562237665784,
-      "realized_period_demand": 32678.16134753323
+      "multiplier": 0.7269931084205025,
+      "realized_period_demand": 32679.1486647061
     },
     "high": {
       "target_period_demand": 48320.0,
-      "multiplier": 1.074889021320277,
-      "realized_period_demand": 48318.68804747105
+      "multiplier": 1.0748862880473702,
+      "realized_period_demand": 48320.410336924804
     }
   },
   "base_period_demand": 45910.02666694756,
-  "crosswalk_share_mean": 0.5530837019571903
+  "crosswalk_share_mean": 0.5530837019571903,
+  "regime_scaling": {
+    "stop_exponent": 0.7,
+    "drop_exponent": 0.3
+  }
 }

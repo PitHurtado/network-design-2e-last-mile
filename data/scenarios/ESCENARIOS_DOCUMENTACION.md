@@ -194,8 +194,8 @@ Por período, con todos los factores **mean-preserving** (`exp(ξ − σ²/2)`):
 ```
 F_t         ~ shock común del período
 Z ~ N(0, Σ) ~ campo espacial;  dev_j = exp(σ_j · Z_j − σ_j²/2)
-stop[j,t]   = max(1, round( E_stop[j,t] · multiplicador · F_t · dev_j ))
-drop[j,t]   = E_drop[j,t] · G_t · dev'_j
+stop[j,t]   = max(1, round( E_stop[j,t] · multiplicador^0.70 · F_t · dev_j ))
+drop[j,t]   = E_drop[j,t] · multiplicador^0.30 · G_t · dev'_j
 demand[j,t] = stop[j,t] · drop[j,t]
 ```
 
@@ -224,8 +224,10 @@ Los dos se documentan porque no son iguales, y confundirlos fue el defecto 4.
 
 ## 5. Regímenes de demanda
 
-Un régimen es un **escalar sobre los conteos de clientes**, calibrado para que la demanda
-esperada por período iguale un objetivo.
+Un régimen reparte un escalar calibrado entre **cantidad de visitas** (exponente 0.70)
+y **tamaño por visita** (exponente 0.30), para que la demanda esperada por período
+iguale un objetivo. Los exponentes suman uno: antes del redondeo de `stop`, el producto
+de ambos factores equivale al multiplicador del régimen.
 
 Los objetivos son los **cuantiles crudos p10 / p50 / p90 de los totales por período
 observados** en los 35 meses usables:
@@ -233,8 +235,8 @@ observados** en los 35 meses usables:
 | régimen | objetivo | multiplicador | realizado |
 |---|---|---|---|
 | `low` | 20,465 | 0.4553 | 20,465 |
-| `normal` | 32,678 | 0.7269 | 32,678 |
-| `high` | 48,320 | 1.0749 | 48,319 |
+| `normal` | 32,678 | 0.7270 | 32,679 |
+| `high` | 48,320 | 1.0749 | 48,320 |
 
 La calibración consume **las mismas semillas** que la generación, así que el realizado da
 en el objetivo en lugar de quedar a una muestra de distancia (sin eso quedaba ~2% abajo).
@@ -296,7 +298,18 @@ python -m src.pipeline.cli.build_panel          # raw -> panel mensual
 python -m src.pipeline.cli.fit_params --n 50    # panel -> shape_params.json
 python -m src.pipeline.cli.generate --all --n 50
 python -m src.pipeline.cli.analyze              # reporte de validación
+python -m src.pipeline.cli.explore              # explorador comparativo
 python -m src.optimization.cli.verify_end_to_end --n 3   # CA + Gurobi
+```
+
+Si solo cambia la política de régimen y no se dispone del panel histórico, se puede
+recalibrar desde el `shape_params.json` persistido:
+
+```bash
+python -m src.pipeline.cli.recalibrate_regimes --n 50
+python -m src.pipeline.cli.generate --all --n 50
+python -m src.pipeline.cli.analyze
+python -m src.pipeline.cli.explore
 ```
 
 Con `shape_params.json` y los raws versionados, `generate` reproduce los escenarios sin

@@ -1,7 +1,6 @@
-"""Build the interactive scenario explorer (grid by regime/layer + variability stats).
+"""Build the comparative explorer for low, normal, and high demand regimes.
 
 poetry run python -m src.pipeline.cli.explore
-poetry run python -m src.pipeline.cli.explore --regimes normal high
 """
 
 import argparse
@@ -13,7 +12,13 @@ from src.pipeline.reports.explore import build_report
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--regimes", nargs="+", choices=REGIMES, default=list(REGIMES))
+    parser.add_argument(
+        "--regimes",
+        nargs="+",
+        choices=REGIMES,
+        default=list(REGIMES),
+        help="must include low, normal, and high for the comparative report",
+    )
     parser.add_argument("--output", default=None, help="Output HTML path (default: results/explore_scenarios.html).")
     args = parser.parse_args()
 

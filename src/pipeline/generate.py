@@ -8,8 +8,8 @@ spatial dependence in `spatial.py`:
     level 3  nugget       the purely local component, folded into the copula's
                           correlation matrix as `corr(0+) = 1 - nugget`
 
-    stop[j,t]   = max(1, round( E_stop[j,t] * multiplier * F_t * dev_j ))
-    drop[j,t]   = E_drop[j,t] * G_t * dev'_j
+    stop[j,t]   = max(1, round( E_stop[j,t] * multiplier**0.70 * F_t * dev_j ))
+    drop[j,t]   = E_drop[j,t] * multiplier**0.30 * G_t * dev'_j
     demand[j,t] = stop[j,t] * drop[j,t]
 
 All multiplicative shocks are mean-preserving (`exp(xi - sigma^2/2)`), so amplifying
@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.core.constants import N_PERIODS, SEED_BASE, scenario_dir
+from src.core.constants import N_PERIODS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, SEED_BASE, scenario_dir
 from src.core.logging import get_logger
 from src.pipeline.marginals import expected_matrix
 
@@ -54,6 +54,8 @@ class ScenarioGenerator:
         sigma_common_stop: float,
         sigma_common_drop: float,
         cholesky: np.ndarray,
+        regime_stop_exponent: float = REGIME_STOP_EXPONENT,
+        regime_drop_exponent: float = REGIME_DROP_EXPONENT,
     ):
         self.pixels = list(pixels)
         self.expected_stop = expected_stop
@@ -63,6 +65,10 @@ class ScenarioGenerator:
         self.sigma_common_stop = sigma_common_stop
         self.sigma_common_drop = sigma_common_drop
         self.cholesky = cholesky
+        if not np.isclose(regime_stop_exponent + regime_drop_exponent, 1.0):
+            raise ValueError("Regime stop/drop exponents must add to 1.")
+        self.regime_stop_exponent = regime_stop_exponent
+        self.regime_drop_exponent = regime_drop_exponent
         self.floor_hits = 0
         self.cells_drawn = 0
 
@@ -115,6 +121,10 @@ class ScenarioGenerator:
         spatial = params["spatial"]
         sigma = correlation_matrix(distances, spatial["rho_km"], spatial["nugget"], spatial.get("plateau", 0.0))
 
+        scaling = params.get("regime_scaling")
+        if scaling is None:
+            raise ValueError("shape_params.json has no regime_scaling; run recalibrate_regimes first.")
+
         return cls(
             pixels=pixels,
             expected_stop=expectation["stop"],
@@ -124,6 +134,8 @@ class ScenarioGenerator:
             sigma_common_stop=params["stop"]["sigma_common"],
             sigma_common_drop=params["drop"]["sigma_common"],
             cholesky=cholesky_factor(sigma),
+            regime_stop_exponent=float(scaling["stop_exponent"]),
+            regime_drop_exponent=float(scaling["drop_exponent"]),
         )
 
     def _spatial_field(self, rng: np.random.Generator) -> np.ndarray:
@@ -156,12 +168,12 @@ class ScenarioGenerator:
                 dev_stop = np.exp(self.sigma_stop * self._spatial_field(rng) - 0.5 * self.sigma_stop**2)
                 dev_drop = np.exp(self.sigma_drop * self._spatial_field(rng) - 0.5 * self.sigma_drop**2)
 
-            raw_stop = self.expected_stop[:, t] * multiplier * f_stop * dev_stop
+            raw_stop = self.expected_stop[:, t] * multiplier**self.regime_stop_exponent * f_stop * dev_stop
             rounded = np.rint(raw_stop).astype(int)
             self.floor_hits += int((rounded < 1).sum())
             self.cells_drawn += n_pixels
             stop[:, t] = np.maximum(1, rounded)
-            drop[:, t] = self.expected_drop[:, t] * f_drop * dev_drop
+            drop[:, t] = self.expected_drop[:, t] * multiplier**self.regime_drop_exponent * f_drop * dev_drop
 
         return stop, drop
 
@@ -237,6 +249,12 @@ def generate_regime(
     summary = {
         "regime": regime,
         "multiplier": multiplier,
+        "stop_factor": multiplier**generator.regime_stop_exponent,
+        "drop_factor": multiplier**generator.regime_drop_exponent,
+        "regime_scaling": {
+            "stop_exponent": generator.regime_stop_exponent,
+            "drop_exponent": generator.regime_drop_exponent,
+        },
         "n_scenarios": n_scenarios,
         "seed_base": seed_base,
         "period_total_mean": float(np.mean(totals)),

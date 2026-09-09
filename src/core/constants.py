@@ -85,6 +85,11 @@ REGIME_TARGETS = {
 }
 REGIMES = tuple(REGIME_TARGETS)
 
+# A regime moves the delivery frequency and the order size together.  The exponents
+# add to one so, before stop rounding, their product remains the regime multiplier.
+REGIME_STOP_EXPONENT = 0.70
+REGIME_DROP_EXPONENT = 0.30
+
 SEED_BASE = 20260908
 
 

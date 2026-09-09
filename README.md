@@ -69,8 +69,9 @@ poetry install
 
 ## Running the pipeline
 
-Four steps, in order. `--n` must match between `fit_params` and `generate`: the regime
-multipliers are calibrated against the exact seed sequence the generator consumes.
+To reproduce the full historical fit, run the following commands in order. `--n` must
+match between calibration and generation: the regime multipliers use the exact seed
+sequence consumed by the generator.
 
 ```bash
 poetry run python -m src.pipeline.cli.build_panel            # raw events → monthly panel
@@ -79,6 +80,25 @@ poetry run python -m src.pipeline.cli.generate --all --n 50  # params → scenar
 poetry run python -m src.pipeline.cli.analyze                # validation report (exit ≠ 0 on failure)
 poetry run python -m src.pipeline.cli.explore                # exploratory report
 ```
+
+### Reproduce the regime comparison from persisted parameters
+
+When the historical raw demand/panel is unavailable, use the versioned
+`data/scenarios/shape_params.json` to recalibrate only the regime policy (70% of the
+regime effect in `stop`, 30% in `drop`), regenerate every scenario and rebuild both
+reports:
+
+```bash
+poetry run python -m src.pipeline.cli.recalibrate_regimes --n 50
+poetry run python -m src.pipeline.cli.generate --all --n 50
+poetry run python -m src.pipeline.cli.analyze
+poetry run python -m src.pipeline.cli.explore
+open results/explore_scenarios.html
+```
+
+The explorer compares low/normal/high on a common map scale for demand, stops, or
+drop. It also reports scenario × period distributions, per-pixel variability, and
+period bands for all three measures. `normal` is the reference for relative changes.
 
 ## Running the models
 

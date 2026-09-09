@@ -10,7 +10,16 @@ import argparse
 import json
 from datetime import date
 
-from src.core.constants import EXCLUDED_YEAR_MONTHS, LAYER_DROP_THRESHOLD, N_PERIODS, PATH_SHAPE_PARAMS, REGIME_TARGETS, SEED_BASE
+from src.core.constants import (
+    EXCLUDED_YEAR_MONTHS,
+    LAYER_DROP_THRESHOLD,
+    N_PERIODS,
+    PATH_SHAPE_PARAMS,
+    REGIME_DROP_EXPONENT,
+    REGIME_STOP_EXPONENT,
+    REGIME_TARGETS,
+    SEED_BASE,
+)
 from src.core.inputs import get_pixels
 from src.core.logging import get_logger
 from src.pipeline.demand_panel import load_panel
@@ -29,7 +38,7 @@ from src.pipeline.spatial import (
 
 logger = get_logger("FitParams")
 
-SHAPE_PARAMS_VERSION = 2
+SHAPE_PARAMS_VERSION = 3
 
 
 def main() -> None:
@@ -128,6 +137,10 @@ def main() -> None:
             "sigma": fitted["drop"]["sigma"]["sigma"].reindex(pixels).round(6).to_dict(),
         },
         "corr_common_stop_drop": fitted["corr_common_stop_drop"],
+        "regime_scaling": {
+            "stop_exponent": REGIME_STOP_EXPONENT,
+            "drop_exponent": REGIME_DROP_EXPONENT,
+        },
         "size_class": fitted["size_class"].reindex(pixels).to_dict(),
         "regimes": {
             regime: {
