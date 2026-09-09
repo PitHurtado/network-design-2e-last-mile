@@ -21,26 +21,38 @@ The Continuous Approximation (CA) method estimates routing costs analytically fr
 
 ## Repository structure
 
+`src/` splits along the one seam that matters: everything that happens **before** a
+solve, and everything that happens **during and after** one. The two never import each
+other — they meet on disk, at the scenario contract.
+
 ```
 .
 ├── data/
-│   ├── facilities/          # Satellite location and cost data
-│   ├── pixels/              # Delivery zone geometry and demand
-│   ├── distances/           # Pre-computed distance matrices (facility↔pixel, DC↔facility)
-│   └── scenarios/           # Sampled demand scenarios
-├── results/
-│   ├── uncapacitated_saa/   # Single-run model outputs (JSON + HTML)
-│   ├── powerset_experiment/ # 2^9 = 512 satellite-combination outputs
-│   └── analysis/            # CA factor analysis HTML report
-├── src/
-│   ├── models/              # Gurobi LP models
-│   ├── routing_tools/       # Continuous Approximation implementation
-│   ├── utils/               # Instance, Scenario, data classes
-│   ├── data/                # ETL loaders
-│   ├── entrypoints/         # Runnable scripts
-│   ├── visualization/       # Interactive HTML generators
-│   └── analysis/            # Factor analysis scripts
-└── pyproject.toml
+│   ├── raw_demand/          # 192 MB delivery-event CSV (untracked)
+│   ├── raw_pixel/           # Pixel grid, geometry, customer-pixel crosswalk
+│   ├── raw_facility/        # Satellite location and cost data
+│   ├── raw_distance/        # Distance matrices (facility↔pixel, DC↔facility)
+│   ├── raw_location/
+│   └── scenarios/           # Monthly panel, fitted shape params, generated scenarios
+├── results/                 # Result JSONs and HTML reports (untracked)
+└── src/
+    ├── core/                # Shared: paths, vehicle params, entities, logging, input readers
+    ├── pipeline/            # Preprocessing: events → panel → shape params → scenarios
+    │   ├── reports/         #   scenario validation and exploration HTML
+    │   └── cli/             #   runnable steps, in pipeline order
+    └── optimization/        # Scenarios → CA → Gurobi → results → HTML
+        ├── routing/         #   Continuous Approximation
+        ├── models/          #   base.py + one thin subclass per variant
+        ├── experiments/     #   powerset sweeps            (not ported yet)
+        ├── reports/         #   interactive result HTML    (not ported yet)
+        └── cli/             #   runnable solves
+```
+
+The dependency direction is the invariant worth checking after any change:
+
+```bash
+grep -rn "^from src\.optimization" src/pipeline      # must print nothing
+grep -rn "^from src\.pipeline"     src/optimization  # must print nothing
 ```
 
 ---
@@ -55,32 +67,62 @@ poetry install
 
 ---
 
+## Running the pipeline
+
+Four steps, in order. `--n` must match between `fit_params` and `generate`: the regime
+multipliers are calibrated against the exact seed sequence the generator consumes.
+
+```bash
+poetry run python -m src.pipeline.cli.build_panel            # raw events → monthly panel
+poetry run python -m src.pipeline.cli.fit_params --n 50      # panel → shape_params.json
+poetry run python -m src.pipeline.cli.generate --all --n 50  # params → scenarios per regime
+poetry run python -m src.pipeline.cli.analyze                # validation report (exit ≠ 0 on failure)
+poetry run python -m src.pipeline.cli.explore                # exploratory report
+```
+
 ## Running the models
 
-### Uncapacitated SAA (single run)
-
-Solves the assignment LP for all 9 satellites with euclidean distances and N=1 scenario.
-
 ```bash
-poetry run python -m src.entrypoints.run_uncapacitated_saa
-# → results/uncapacitated_saa/uncapacitated_1_True_None.json
+poetry run python -m src.optimization.cli.verify_end_to_end --n 3   # CA + Gurobi smoke test
 ```
 
-### Powerset experiment (all satellite combinations)
+The powerset experiment and the extended-model drivers have not been ported to this
+layout yet; their reference implementation is under `OLD/src/entrypoints/`.
 
-Runs the model for all 2^9 = 512 subsets of satellites (including DC-only). Skips configs that already have a result JSON.
+### The model family
 
-```bash
-poetry run python -m src.entrypoints.run_powerset_experiment
+The four formulations nest strictly, so they are one base class plus thin subclasses.
+`src/optimization/models/base.py` owns the shared formulation — the assignment
+variables, both routing terms, the demand constraint, `solve()` — and a registry of
+optional blocks. A variant declares which blocks it enables; it does not restate the
+base.
+
+| Model | Adds over the base | Status |
+|---|---|---|
+| `uncapacitated` | nothing | ported |
+| `capacitated` | `Y[i,q]`, installation cost, one-level and capacity constraints | pending |
+| `flex` | `Z[i,q,t,n]`, operation cost, one-operating-level and `Z ≤ Y` | pending |
+| `extended` | flex's variable set under `type_of_flexibility` | pending |
+
+Two properties the registry enforces, because both were silent failure modes before:
+
+- **Installation cost is not averaged by `1/N`.** Every objective block declares whether
+  it is scenario-dependent, so a new variant cannot get the averaging wrong by omission.
+  This is also why cost components in a result JSON do not sum to `objective`.
+- **`Status` travels with the objective.** `solve()` records `status` and `is_optimal`,
+  and reports `objective_value = None` when there is no feasible solution, so a
+  time-limit incumbent can no longer be read as an optimum.
+
+Ablations do not need a new class — `disabled_blocks` names blocks, not flags, so a
+single constraint can be dropped while its variables stay:
+
+```python
+from dataclasses import replace
+model = FlexSAAModel(instance, features=replace(FlexSAAModel.DEFAULT_FEATURES,
+                                                disabled_blocks=frozenset({"capacity"})))
 ```
 
-### Extended SAA
-
-Solves the full model with flexible or fixed capacity, using pre-sampled expected scenarios.
-
-```bash
-poetry run python -m src.entrypoints.run_extended_saa
-```
+The enabled feature set is recorded in the results dict, so every run says what it was.
 
 ---
 
@@ -90,9 +132,11 @@ poetry run python -m src.entrypoints.run_extended_saa
 
 Generates an interactive HTML map from any result JSON. Dropdowns for period and layer (DC / satellite). Hover shows demand, cost, assigned satellite, and fleet size per pixel.
 
+> Not ported to this layout yet. The reference implementation is
+> `OLD/src/visualization/solution_map.py`; the port lands in `src/optimization/reports/`.
+
 ```bash
-poetry run python -m src.visualization.solution_map results/uncapacitated_saa/uncapacitated_1_True_None.json
-open results/uncapacitated_saa/uncapacitated_1_True_None.html
+cd OLD && poetry run python -m src.visualization.solution_map results/uncapacitated_saa/uncapacitated_1_True_None.json
 ```
 
 ### Powerset summary
@@ -103,9 +147,10 @@ Builds one HTML per satellite combination plus a master `summary.html` with:
 - Sortable table of all 512 configurations
 - Iframe viewer to inspect any individual solution map
 
+> Not ported to this layout yet — see `OLD/src/visualization/powerset_html.py`.
+
 ```bash
-poetry run python -m src.visualization.powerset_html
-open results/powerset_experiment/summary.html
+cd OLD && poetry run python -m src.visualization.powerset_html
 ```
 
 Use `--skip-individual` to regenerate only the summary without re-rendering per-config maps.
@@ -127,9 +172,10 @@ Identifies which input factors (distance, density, demand, area, drop size) driv
 
 Each section includes a methodology box (what data was used and how the plot was built) and an insight box (why the observed behavior occurs mathematically).
 
+> Not ported to this layout yet — see `OLD/src/analysis/ca_factor_analysis.py`.
+
 ```bash
-poetry run python -m src.analysis.ca_factor_analysis
-open results/analysis/ca_factor_analysis.html
+cd OLD && poetry run python -m src.analysis.ca_factor_analysis
 ```
 
 ---

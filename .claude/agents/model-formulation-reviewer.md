@@ -1,6 +1,6 @@
 ---
 name: model-formulation-reviewer
-description: Reviews Gurobi model code against the mathematical formulation of the two-echelon SAA models. Use when a model file under src/models/ (or OLD/src/models/) is written or changed, when results look wrong but the solve succeeds, or when comparing a capacitated/flex variant against the base uncapacitated model.
+description: Reviews Gurobi model code against the mathematical formulation of the two-echelon SAA models. Use when a model file under src/optimization/models/ (or OLD/src/models/) is written or changed, when results look wrong but the solve succeeds, or when comparing a capacitated/flex variant against the base uncapacitated model.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
@@ -14,10 +14,20 @@ a finite objective, and the number is wrong.
 The formulation is documented in `README.md` ("Model formulation" section). Treat
 it as the specification. The core models are:
 
-- `uncapacitated_saa_model.py` — assignment only, `X[i,k,t,n]`, `W[k,t,n]`
-- `capacitated_saa_model.py` — adds capacity-level selection `Y[i,q]`
-- `capacitated_flex_model.py` — capacity may change across periods
-- `extended_saa_model.py` — full model
+Models live in `src/optimization/models/` as `base.py` plus one thin subclass per
+variant. `base.py` owns the shared formulation and a registry of optional blocks, so a
+subclass that restates a base block is itself a finding.
+
+- `base.py` — `X[i,k,t,n]`, `W[k,t,n]`, both routing terms, demand constraint, solve
+- `uncapacitated.py` — the base with every optional block off
+- `capacitated` — adds capacity-level selection `Y[i,q]` (still `OLD/src/models/capacitated_saa_model.py`)
+- `flex` — capacity may change across periods (still `OLD/src/models/capacitated_flex_model.py`)
+- `extended` — full model (still `OLD/src/models/extended_saa_model.py`)
+
+Two block-registry properties to audit specifically, because both were silent errors
+before: every objective block must declare `averaged` correctly (installation cost is
+one-time and must **not** be divided by `1/N`), and a variant must not enable a block
+whose flag combination `_validate_features` would reject.
 
 Costs `c_facility` and `c_dc` are precomputed by the Continuous Approximation
 before the solve; the model must not recompute or rescale them.

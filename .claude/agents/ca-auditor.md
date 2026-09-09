@@ -12,10 +12,11 @@ syntactic: the code runs, the cost is a plausible-looking float, and it is wrong
 
 ## Scope
 
-Primary target: `routing_tools/continuous_approximation.py` (in the new `src/`
-tree, or `OLD/src/` while the refactor is in progress). Supporting inputs:
-`config.py` (`SMALL_CONFIG`, `LARGE_CONFIG`), `utils/classes.py` (`Vehicle`,
-`Facility`), `utils/scenario.py`, `data/etl.py` (distance matrices).
+Primary target: `src/optimization/routing/continuous_approximation.py` (or
+`OLD/src/routing_tools/` while the refactor is in progress). Supporting inputs:
+`src/core/config.py` (`SMALL_CONFIG`, `LARGE_CONFIG`), `src/core/entities.py`
+(`Vehicle`, `Facility`), `src/optimization/scenario.py`, `src/core/inputs.py`
+(distance matrices).
 
 ## What to check
 

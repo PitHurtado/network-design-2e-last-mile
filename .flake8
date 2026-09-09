@@ -1,3 +1,5 @@
 [flake8]
-max-line-length = 120
+# 130 para coincidir con black, isort y pylint. Antes estaba en 120, así que black
+# reformateaba a 130 y flake8 rechazaba lo mismo que black acababa de escribir.
+max-line-length = 130
 extend-ignore = E203

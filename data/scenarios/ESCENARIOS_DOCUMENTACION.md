@@ -1,7 +1,7 @@
 # Escenarios de demanda — documentación
 
 **Versión de parámetros:** 2 · **Ajustado el:** 2026-09-08
-**Código:** `src/data/`, `src/scenarios/`, `src/analysis/scenarios.py`, `src/entrypoints/scenarios/`
+**Código:** `src/pipeline/` (módulos, `reports/` y `cli/`); los lectores de inputs crudos están en `src/core/inputs.py`
 
 Este documento describe el procedimiento **vigente**. Reemplaza por completo la versión
 anterior, que documentaba un código distinto del que corría (ver §9).
@@ -60,7 +60,7 @@ concluyente —
 - sobrevive una columna `_merge == "both"` constante.
 
 `drop_duplicates()` sobre las 8 columnas deja **1,019,698 filas** y la demanda total pasa
-de 10,694,636 a **3,924,851**. `src/data/demand_panel.py` aborta si la proporción de
+de 10,694,636 a **3,924,851**. `src/pipeline/demand_panel.py` aborta si la proporción de
 fan-out se aparta de lo verificado, en lugar de seguir con totales inflados 2.7×.
 
 ### 2.2 Otras correcciones de data
@@ -264,7 +264,7 @@ y su año*. Queda documentada como variante de sensibilidad; no está implementa
 
 ## 6. El contrato de escenarios
 
-El loader (`src/data/etl.py`) lee **solo** `data["pixels"]`, y de cada píxel cuatro campos:
+El loader (`src/core/inputs.py`) lee **solo** `data["pixels"]`, y de cada píxel cuatro campos:
 
 | campo | tipo | largo |
 |---|---|---|
@@ -278,7 +278,7 @@ archivo. `k`, `lon`, `lat` y `area_surface` no son parte del contrato — vienen
 `input_pixels.xlsx`.
 
 **Por qué los invariantes son duros:** la CA solo escribe claves de costo cuando
-`demand > 0`, y `uncapacitated_saa_model` las indexa directo → un solo píxel-período en
+`demand > 0`, y `BaseSAAModel._obj_routing_facilities` las indexa directo → un solo píxel-período en
 cero es un `KeyError` en el solve. Además `drop` es divisor (`capacity / drop`) y `density`
 va bajo un `sqrt` en un divisor → un cero ahí es `ZeroDivisionError` antes de construir el
 modelo. Y el conjunto de píxeles debe coincidir con `input_pixels.xlsx`: un píxel que no
@@ -292,11 +292,11 @@ esté ahí se **descarta en silencio**.
 poetry install
 poetry shell
 
-python -m src.entrypoints.scenarios.build_panel          # raw -> panel mensual
-python -m src.entrypoints.scenarios.fit_params --n 50    # panel -> shape_params.json
-python -m src.entrypoints.scenarios.generate --all --n 50
-python -m src.entrypoints.scenarios.analyze              # reporte de validación
-python -m src.entrypoints.scenarios.verify_end_to_end --n 3   # CA + Gurobi
+python -m src.pipeline.cli.build_panel          # raw -> panel mensual
+python -m src.pipeline.cli.fit_params --n 50    # panel -> shape_params.json
+python -m src.pipeline.cli.generate --all --n 50
+python -m src.pipeline.cli.analyze              # reporte de validación
+python -m src.optimization.cli.verify_end_to_end --n 3   # CA + Gurobi
 ```
 
 Con `shape_params.json` y los raws versionados, `generate` reproduce los escenarios sin
