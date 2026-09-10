@@ -1,259 +1,253 @@
-# Two-Echelon Last-Mile Delivery Network Design under Uncertainty
+# Diseño estocástico de redes de última milla con dos escalones
 
-**Research project** — stochastic optimization of two-echelon (DC → satellites → pixels) last-mile delivery networks with multiple capacity levels and multi-period demand uncertainty.
+Este repositorio estudia el diseño de una red de distribución de dos escalones:
 
-**Authors:** Pitehr Hurtado-Cayo · Juan C. Pina-Pardo · Selene Silvestri · Matthias Winkenbach
-
----
-
-## Overview
-
-The network has two echelons:
-
-1. **Distribution Center (DC)** — serves pixels directly using large vehicles when no satellite is open nearby.
-2. **Satellites** — intermediate facilities that can be opened or closed; serve pixels using small vehicles.
-
-Demand is uncertain and modeled via sampled scenarios. The model decides which pixels each satellite (or the DC) should serve in each period and scenario, minimizing expected total routing cost.
-
-The Continuous Approximation (CA) method estimates routing costs analytically from pixel geometry (area, density, demand), so the LP does not require explicit route enumeration.
-
----
-
-## Repository structure
-
-`src/` splits along the one seam that matters: everything that happens **before** a
-solve, and everything that happens **during and after** one. The two never import each
-other — they meet on disk, at the scenario contract.
-
-```
-.
-├── data/
-│   ├── raw_demand/          # 192 MB delivery-event CSV (untracked)
-│   ├── raw_pixel/           # Pixel grid, geometry, customer-pixel crosswalk
-│   ├── raw_facility/        # Satellite location and cost data
-│   ├── raw_distance/        # Distance matrices (facility↔pixel, DC↔facility)
-│   ├── raw_location/
-│   └── scenarios/           # Monthly panel, fitted shape params, generated scenarios
-├── results/                 # Result JSONs and HTML reports (untracked)
-└── src/
-    ├── core/                # Shared: paths, vehicle params, entities, logging, input readers
-    ├── pipeline/            # Preprocessing: events → panel → shape params → scenarios
-    │   ├── reports/         #   scenario validation and exploration HTML
-    │   └── cli/             #   runnable steps, in pipeline order
-    └── optimization/        # Scenarios → CA → Gurobi → results → HTML
-        ├── routing/         #   Continuous Approximation
-        ├── models/          #   base.py + one thin subclass per variant
-        ├── experiments/     #   powerset sweeps            (not ported yet)
-        ├── reports/         #   interactive result HTML    (not ported yet)
-        └── cli/             #   runnable solves
+```text
+Centro de distribución (DC) ──► Satélites ──► Clústeres de clientes (píxeles)
 ```
 
-The dependency direction is the invariant worth checking after any change:
+El modelo decide dónde instalar satélites, qué capacidad contratar y cómo operar la
+red en distintos períodos y escenarios de demanda. Los costos de ruteo se estiman
+con *Continuous Approximation* (CA), por lo que el modelo no necesita enumerar rutas.
 
-```bash
-grep -rn "^from src\.optimization" src/pipeline      # must print nothing
-grep -rn "^from src\.pipeline"     src/optimization  # must print nothing
-```
+## Requisitos y preparación
 
----
+- Python 3.10 o superior
+- [Poetry](https://python-poetry.org/)
+- Una licencia activa de Gurobi para ejecutar los modelos de optimización
 
-## Setup
-
-Requires Python ≥ 3.10, [Poetry](https://python-poetry.org/), and a valid **Gurobi license**.
+Desde la raíz del repositorio:
 
 ```bash
 poetry install
 ```
 
----
-
-## Running the pipeline
-
-To reproduce the full historical fit, run the following commands in order. `--n` must
-match between calibration and generation: the regime multipliers use the exact seed
-sequence consumed by the generator.
+Para incluir las dependencias usadas sólo por notebooks históricos:
 
 ```bash
-poetry run python -m src.pipeline.cli.build_panel            # raw events → monthly panel
-poetry run python -m src.pipeline.cli.fit_params --n 50      # panel → shape_params.json
-poetry run python -m src.pipeline.cli.generate --all --version v3  # params → versioned scenario sets
-poetry run python -m src.pipeline.cli.analyze                # validation report (exit ≠ 0 on failure)
-poetry run python -m src.pipeline.cli.explore                # exploratory report
+poetry install --with notebooks
 ```
 
-### Reproduce the regime comparison from persisted parameters
+Todos los comandos que siguen se ejecutan desde la raíz y usan `poetry run`.
 
-When the historical raw demand/panel is unavailable, use the versioned
-`data/scenarios/shape_params.json` to recalibrate only the regime policy (70% of the
-regime effect in `stop`, 30% in `drop`), regenerate every scenario and rebuild both
-reports:
+## Mapa del repositorio
+
+```text
+.
+├── data/                                      # Datos de entrada y escenarios
+│   ├── raw_demand/                             # Eventos históricos de entrega
+│   ├── raw_pixel/                              # Grilla, píxeles y crosswalk cliente→píxel
+│   ├── raw_facility/                           # Ubicaciones, capacidades y costos de satélites
+│   ├── raw_distance/                           # Matrices DC↔satélite y satélite↔píxel
+│   ├── raw_location/                           # Coordenadas de apoyo
+│   └── scenarios/                              # Panel, parámetros y escenarios versionados
+│       ├── panel_monthly.csv                   # Panel mensual construido desde la demanda
+│       ├── shape_params.json                   # Ajuste estadístico reproducible
+│       └── generated/<versión>/<régimen>/<set>/ # Escenarios y manifiestos
+├── src/
+│   ├── core/                                  # Entidades, constantes, rutas, lectores y logging
+│   ├── pipeline/                              # Demanda histórica → escenarios
+│   │   ├── cli/                               # build_panel, fit_params, generate, analyze, explore
+│   │   ├── reports/                           # Reportes HTML de validación y exploración
+│   │   └── {crosswalk,marginals,spatial,...}.py
+│   └── optimization/                          # Escenarios → CA → Gurobi → resultados
+│       ├── routing/continuous_approximation.py # Costos analíticos de ruteo
+│       ├── models/                            # Formulación base, sin capacidad y flexible
+│       ├── experiments/                       # Experimentos de flexibilidad y evaluación VSS
+│       ├── reports/                           # Reportes HTML de resultados
+│       └── cli/                               # Smoke test, experimentos y reportes
+├── results/                                   # HTML, JSON y resultados de las corridas
+│   ├── analysis/<versión>/                    # Validación de escenarios
+│   ├── flexibility/<versión>/                 # Comparación de políticas de flexibilidad
+│   └── flexibility_evaluation/<versión>/      # Evaluación fuera de muestra y VSS
+├── docs/
+│   ├── paper/                                 # Artículo LaTeX y PDFs compilados
+│   └── presentations/                         # Presentación Keynote y copia PowerPoint
+├── OLD/                                       # Implementación previa; referencia, no flujo principal
+├── pyproject.toml                             # Dependencias y configuración de herramientas
+└── README.md
+```
+
+La dependencia entre módulos es intencional y unidireccional:
+
+```text
+datos históricos → pipeline → escenarios en disco → optimización → resultados/reportes
+                         │                               │
+                         └────────── src/core ───────────┘
+```
+
+Comprueba que las capas no se crucen:
+
+```bash
+rg '^from src\.optimization' src/pipeline      # no debe devolver resultados
+rg '^from src\.pipeline' src/optimization      # no debe devolver resultados
+```
+
+## Flujos de ejecución
+
+### 1. Usar los escenarios ya disponibles
+
+El repositorio incluye escenarios `v3`. Este es el camino más rápido para verificar
+el modelo y regenerar los reportes, sin reprocesar la demanda histórica.
+
+```bash
+# Prueba de integración: escenarios → CA → Gurobi
+poetry run python -m src.optimization.cli.verify_end_to_end --n 3
+
+# Validar y explorar los escenarios v3
+poetry run python -m src.pipeline.cli.analyze --version v3
+poetry run python -m src.pipeline.cli.explore --version v3
+open results/analysis/v3/scenario_validation.html
+open results/v3/explore_scenarios.html
+```
+
+### 2. Reconstruir los escenarios desde datos históricos
+
+Usa este flujo sólo cuando cambien los eventos de demanda, el crosswalk, la grilla o
+el ajuste estadístico. `build_panel` requiere el archivo histórico de
+`data/raw_demand/`.
+
+```bash
+# Eventos históricos → panel mensual
+poetry run python -m src.pipeline.cli.build_panel
+
+# Panel → parámetros marginales, espaciales y de régimen
+poetry run python -m src.pipeline.cli.fit_params --n 50
+
+# Parámetros → conjuntos de escenarios para low, normal y high
+poetry run python -m src.pipeline.cli.generate --all --version v4
+
+# Chequeos de contrato y explorador comparativo
+poetry run python -m src.pipeline.cli.analyze --version v4
+poetry run python -m src.pipeline.cli.explore --version v4
+```
+
+Para revisar el panel sin sobrescribir `data/scenarios/panel_monthly.csv`:
+
+```bash
+poetry run python -m src.pipeline.cli.build_panel --dry-run
+```
+
+### 3. Recalibrar regímenes sin refitar la historia
+
+Cuando cambie la política de demanda baja/normal/alta, pero se mantengan los
+parámetros marginales y espaciales, recalibra `shape_params.json` y genera una nueva
+versión de escenarios.
 
 ```bash
 poetry run python -m src.pipeline.cli.recalibrate_regimes --validation-n 100
-poetry run python -m src.pipeline.cli.generate --all --version v3
-poetry run python -m src.pipeline.cli.analyze
-poetry run python -m src.pipeline.cli.explore
-open results/explore_scenarios.html
+poetry run python -m src.pipeline.cli.generate --all --version v4
+poetry run python -m src.pipeline.cli.analyze --version v4
+poetry run python -m src.pipeline.cli.explore --version v4
 ```
 
-The explorer compares low/normal/high on a common map scale for demand, stops, or
-drop. It also reports scenario × period distributions, per-pixel variability, and
-period bands for all three measures. `normal` is the reference for relative changes.
+No uses `--overwrite` salvo que quieras reemplazar deliberadamente una versión ya
+generada; el generador protege los directorios existentes.
 
-Each version is stored as `data/scenarios/generated/<version>/<regime>/<set>/` with a
-manifest containing canonical IDs, seed scheme and a SHA-256 of `shape_params.json`.
-`optimization` has 30 simulated scenarios, `validation` has 100 independent simulated
-scenarios, `expected` has the 12-period mean-shock scenario, and `annual_expected` has
-one annual-average period for descriptive analysis only (it cannot enter the 12-period
-optimizer). Use `--optimization-n`, `--validation-n` and `--seed-base` to create a
-different explicitly labelled version. Existing folders are protected; use
-`--overwrite` only to rebuild the identical version deliberately.
+### 4. Ejecutar el experimento de flexibilidad
 
-## Running the models
+Compara tres políticas de operación de capacidad bajo los tres regímenes y las tres
+fuentes de decisión de primera etapa (`annual_expected`, `expected`, `optimization`).
 
 ```bash
-poetry run python -m src.optimization.cli.verify_end_to_end --n 3   # CA + Gurobi smoke test
+poetry run python -m src.optimization.cli.run_flexibility_experiment \
+  --version v3 --time-limit 300 --mip-gap 0
+
+poetry run python -m src.optimization.cli.report_flexibility_experiment --version v3
+open results/flexibility/v3/flexibility_comparison.html
 ```
 
-The powerset experiment and the extended-model drivers have not been ported to this
-layout yet; their reference implementation is under `OLD/src/entrypoints/`.
+Las políticas son:
 
-### The model family
+| Política | Decisión operacional permitida |
+|---|---|
+| `fixed_operation` | Siempre opera a la capacidad instalada. |
+| `on_off_installed` | Puede apagarse o usar la capacidad instalada. |
+| `up_to_installed` | Puede apagarse o elegir cualquier nivel menor o igual al instalado. |
 
-The four formulations nest strictly, so they are one base class plus thin subclasses.
-`src/optimization/models/base.py` owns the shared formulation — the assignment
-variables, both routing terms, the demand constraint, `solve()` — and a registry of
-optional blocks. A variant declares which blocks it enables; it does not restate the
-base.
+Para un piloto acotado, limita régimen, política y caso:
 
-| Model | Adds over the base | Status |
+```bash
+poetry run python -m src.optimization.cli.run_flexibility_experiment \
+  --version v3 --regimes normal --flexibilities up_to_installed \
+  --cases optimization --time-limit 300 --mip-gap 0
+```
+
+### 5. Evaluación fuera de muestra y VSS
+
+Fija las decisiones de instalación de cada caso y reoptimiza operación y ruteo sobre
+los escenarios de validación. El reporte calcula el *Value of the Stochastic
+Solution* (VSS): un valor positivo indica que la decisión estocástica redujo el costo
+medio de validación frente al caso base.
+
+```bash
+poetry run python -m src.optimization.cli.evaluate_flexibility_experiment \
+  --version v3 --time-limit 600
+
+poetry run python -m src.optimization.cli.report_flexibility_evaluation --version v3
+open results/flexibility_evaluation/v3/vss_comparison.html
+```
+
+## Referencia de comandos
+
+| Comando | Propósito | Salida principal |
 |---|---|---|
-| `uncapacitated` | nothing | ported |
-| `capacitated` | `Y[i,q]`, installation cost, one-level and capacity constraints | pending |
-| `flex` | `Z[i,q,t,n]`, operation cost, one-operating-level and `Z ≤ Y` | pending |
-| `extended` | flex's variable set under `type_of_flexibility` | pending |
+| `src.pipeline.cli.build_panel` | Construye el panel mensual desde eventos históricos. | `data/scenarios/panel_monthly.csv` |
+| `src.pipeline.cli.fit_params` | Ajusta marginales, estructura espacial y regímenes. | `data/scenarios/shape_params.json` |
+| `src.pipeline.cli.recalibrate_regimes` | Actualiza sólo multiplicadores de régimen. | `shape_params.json` actualizado |
+| `src.pipeline.cli.generate` | Genera escenarios inmutables y manifiestos. | `data/scenarios/generated/...` |
+| `src.pipeline.cli.analyze` | Valida invariantes de los escenarios. | `results/analysis/<versión>/scenario_validation.html` |
+| `src.pipeline.cli.explore` | Compara low, normal y high espacialmente. | `results/<versión>/explore_scenarios.html` |
+| `src.optimization.cli.verify_end_to_end` | Smoke test de CA, escenarios y Gurobi. | Salida de consola; falla si el contrato se rompe. |
+| `src.optimization.cli.run_flexibility_experiment` | Corre las configuraciones de flexibilidad. | `results/flexibility/<versión>/.../result.json` |
+| `src.optimization.cli.report_flexibility_experiment` | Construye la comparación de flexibilidad. | `flexibility_comparison.html`, `summary.json` |
+| `src.optimization.cli.evaluate_flexibility_experiment` | Evalúa decisiones fijas sobre validación. | `results/flexibility_evaluation/<versión>/.../evaluation.json` |
+| `src.optimization.cli.report_flexibility_evaluation` | Construye el reporte VSS. | `vss_comparison.html`, `vss_summary.json` |
 
-Two properties the registry enforces, because both were silent failure modes before:
-
-- **Installation cost is not averaged by `1/N`.** Every objective block declares whether
-  it is scenario-dependent, so a new variant cannot get the averaging wrong by omission.
-  This is also why cost components in a result JSON do not sum to `objective`.
-- **`Status` travels with the objective.** `solve()` records `status` and `is_optimal`,
-  and reports `objective_value = None` when there is no feasible solution, so a
-  time-limit incumbent can no longer be read as an optimum.
-
-Ablations do not need a new class — `disabled_blocks` names blocks, not flags, so a
-single constraint can be dropped while its variables stay:
-
-```python
-from dataclasses import replace
-model = FlexSAAModel(instance, features=replace(FlexSAAModel.DEFAULT_FEATURES,
-                                                disabled_blocks=frozenset({"capacity"})))
-```
-
-The enabled feature set is recorded in the results dict, so every run says what it was.
-
----
-
-## Visualization
-
-### Single-solution map
-
-Generates an interactive HTML map from any result JSON. Dropdowns for period and layer (DC / satellite). Hover shows demand, cost, assigned satellite, and fleet size per pixel.
-
-> Not ported to this layout yet. The reference implementation is
-> `OLD/src/visualization/solution_map.py`; the port lands in `src/optimization/reports/`.
+Para ver argumentos disponibles de cualquier comando:
 
 ```bash
-cd OLD && poetry run python -m src.visualization.solution_map results/uncapacitated_saa/uncapacitated_1_True_None.json
+poetry run python -m src.optimization.cli.run_flexibility_experiment --help
 ```
 
-### Powerset summary
+## Contrato de escenarios
 
-Builds one HTML per satellite combination plus a master `summary.html` with:
-- Scatter of Δ% objective vs. number of active satellites (with efficiency frontier)
-- Boxplot of objective distribution by subset size
-- Sortable table of all 512 configurations
-- Iframe viewer to inspect any individual solution map
+Cada versión tiene las carpetas siguientes por régimen:
 
-> Not ported to this layout yet — see `OLD/src/visualization/powerset_html.py`.
-
-```bash
-cd OLD && poetry run python -m src.visualization.powerset_html
+```text
+generated/<versión>/<low|normal|high>/
+├── optimization/     # 30 escenarios simulados; usados para optimizar
+├── validation/       # 100 escenarios independientes; usados para evaluar
+├── expected/         # Un escenario de demanda esperada en 12 períodos
+└── annual_expected/  # Un período promedio anual; sólo análisis descriptivo
 ```
 
-Use `--skip-individual` to regenerate only the summary without re-rendering per-config maps.
+Cada conjunto incluye un manifiesto con IDs canónicos, semilla y el SHA-256 de los
+parámetros. `annual_expected` no se puede usar como horizonte de 12 períodos en el
+optimizador.
 
----
+## Modelo
 
-## Analysis
+La formulación comparte una base y activa bloques por variante:
 
-### CA factor analysis
-
-Identifies which input factors (distance, density, demand, area, drop size) drive routing costs under the Continuous Approximation. Outputs a self-contained HTML report with four sections:
-
-| Section | Question answered |
-|---|---|
-| **Cost decomposition** | Which cost component (line-haul, intra-stop, fixed, preparation) dominates, and how does it vary across satellites? |
-| **Log-linear elasticities** | Which factor has the largest % impact on each cost component? (OLS in log-log space) |
-| **Partial Dependence Plots** | What is the shape of the relationship between each factor and total cost? |
-| **Fleet size analysis** | What drives fleet size requirements at each satellite? |
-
-Each section includes a methodology box (what data was used and how the plot was built) and an insight box (why the observed behavior occurs mathematically).
-
-> Not ported to this layout yet — see `OLD/src/analysis/ca_factor_analysis.py`.
-
-```bash
-cd OLD && poetry run python -m src.analysis.ca_factor_analysis
-```
-
----
-
-## Model formulation
-
-### Decision variables
-
-| Variable | Domain | Description |
+| Modelo | Archivo | Característica |
 |---|---|---|
-| `X[i,k,t,n]` | [0,1] (continuous) or {0,1} | Fraction of pixel `k` served by satellite `i` in period `t`, scenario `n` |
-| `W[k,t,n]` | [0,1] | Fraction of pixel `k` served directly from the DC in period `t`, scenario `n` |
+| Sin capacidad | `src/optimization/models/uncapacitated.py` | Asignación y costo de ruteo. |
+| Flexible | `src/optimization/models/flex.py` | Instalación `Y`, operación `Z`, costos y restricciones de capacidad. |
 
-### Objective
+La función objetivo minimiza instalación más el costo esperado de operación y ruteo.
+En cada período y escenario, cada píxel se atiende exactamente desde un satélite o
+directamente desde el DC.
 
-Minimize expected total routing cost across scenarios:
+## Documentación y entregables
 
+```bash
+# Abrir la presentación migrada a PowerPoint
+open docs/presentations/research_seminar_presentation.pptx
+
+# Abrir el artículo compilado
+open docs/paper/main.pdf
 ```
-min  (1/N) · Σ_n [ Σ_{i,k,t} c_facility[i,k,t,n] · X[i,k,t,n]
-                  + Σ_{k,t}   c_dc[k,t,n]         · W[k,t,n]   ]
-```
 
-where costs `c_facility` and `c_dc` are computed by the Continuous Approximation before solving the LP.
-
-### Constraints
-
-- **Coverage:** every pixel must be fully covered in every period and scenario — `Σ_i X[i,k,t,n] + W[k,t,n] = 1`
-- **Satellite activation:** assignment to satellite `i` is only allowed if `i` is in the active subset
-
-### Continuous Approximation cost components
-
-For each (satellite, pixel, vehicle type, period):
-
-| Component | Formula sketch |
-|---|---|
-| Line-haul | distance × fleet trips × cost per km |
-| Intra-stop | √(area / stops) × stop density × cost per km |
-| Fixed | fleet size × fixed vehicle cost |
-| Tour preparation | number of tours × preparation cost |
-
----
-
-## Key parameters
-
-| Parameter | Description |
-|---|---|
-| `N` | Number of demand scenarios per sample |
-| `T` (periods) | Number of time periods (default: 12) |
-| `type_of_flexibility` | `FIXED_CAPACITY` or `FLEX_CAPACITY` — whether satellites can change capacity across periods |
-| `use_euclidean_distance` | Use straight-line distances instead of road distances |
-| `facilities_subset` | Restrict the active satellite set (used by the powerset experiment) |
-| `max_run_time` | Gurobi time limit in seconds |
+`OLD/` conserva código anterior como referencia. No es parte del flujo reproducible
+descrito arriba.

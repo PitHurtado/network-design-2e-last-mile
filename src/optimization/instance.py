@@ -58,12 +58,16 @@ class Instance:
             regime=regime,
         )
 
-        if periods != N_PERIODS:
+        if periods not in (N_PERIODS, 1):
             raise ValueError(
-                f"periods={periods} but the Continuous Approximation and the scenario contract are fixed at "
-                f"{N_PERIODS}. Changing it silently truncates or overruns the per-period arrays."
+                f"periods={periods}; supported planning horizons are {N_PERIODS} and the one-period annual aggregate."
             )
+        if periods == 1 and scenario_set != "annual_expected":
+            raise ValueError("The one-period horizon is reserved for the annual_expected scenario set.")
         self.periods = periods
+        # annual_expected stores one average period; scale its variable costs back to
+        # the annual 12-period horizon while keeping installation one-time.
+        self.horizon_weight = N_PERIODS if scenario_set == "annual_expected" else 1
 
         self.vehicles: Dict[str, Vehicle] = get_vehicles()
         self.facilities: Dict[str, Facility] = get_facilities()
@@ -112,5 +116,6 @@ class Instance:
             facilities=self.facilities,
             vehicles=self.vehicles,
             use_euclidean_distance=self.use_euclidean_distance,
+            periods=self.periods,
         )
         self.scenarios = approximation.run_continuous_approximation()

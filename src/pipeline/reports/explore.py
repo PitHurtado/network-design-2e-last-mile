@@ -9,7 +9,7 @@ import plotly.colors as pc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from src.core.constants import GRID_DLAT, GRID_DLON, N_PERIODS, RESULTS_DIR
+from src.core.constants import DEFAULT_SCENARIO_VERSION, GRID_DLAT, GRID_DLON, N_PERIODS, RESULTS_DIR
 from src.core.logging import get_logger
 from src.pipeline.generate import load_generated
 from src.pipeline.reports.scenarios import CSS, PLOTLY_CDN, REGIME_COLORS, section, to_html
@@ -38,12 +38,12 @@ METRICS = {
 }
 
 
-def load_all(regimes: list[str]) -> dict[str, pd.DataFrame]:
+def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dict[str, pd.DataFrame]:
     """Load simulated scenarios only, merged with geometry and layer."""
     centroids = pixel_centroids()[["id_pixel", "layer", "lon", "lat", "n_cells"]]
     data = {}
     for regime in regimes:
-        frame = load_generated(regime)
+        frame = load_generated(regime, version=version, scenario_set="validation")
         frame = frame.merge(centroids, on="id_pixel", how="left")
         if frame["layer"].isna().any():
             raise ValueError(f"[{regime}] pixels missing from pixel_centroids()")
@@ -307,12 +307,12 @@ CSS_EXTRA = """
 """
 
 
-def build_report(regimes: list[str], output_path=None):
-    output_path = output_path or (RESULTS_DIR / "explore_scenarios.html")
+def build_report(regimes: list[str], output_path=None, version: str = DEFAULT_SCENARIO_VERSION):
+    output_path = output_path or (RESULTS_DIR / version / "explore_scenarios.html")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if len(regimes) != 3 or set(regimes) != {"low", "normal", "high"}:
         raise ValueError("The comparative explorer requires low, normal, and high regimes.")
-    data = load_all(regimes)
+    data = load_all(regimes, version)
     summaries = {regime: pixel_summary(frame) for regime, frame in data.items()}
     layers, n_pixels = sorted(summaries["normal"]["layer"].unique()), len(summaries["normal"])
     n_scenarios, period_metrics = data["normal"]["id_scenario"].nunique(), regime_period_metrics(data)

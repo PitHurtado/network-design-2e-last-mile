@@ -61,6 +61,7 @@ class ContinuousApproximation:
         vehicles: dict[str, Vehicle],
         use_euclidean_distance: bool = False,
         show_logs=False,
+        periods: int = N_PERIODS,
     ):
         self.__show_logs = show_logs
         self.use_euclidean_distance = use_euclidean_distance
@@ -68,7 +69,7 @@ class ContinuousApproximation:
             scenarios=scenarios,
             facilities=facilities,
             vehicles=vehicles,
-            periods=N_PERIODS,
+            periods=periods,
         )
         self.distances = ApproximationDistances()
 

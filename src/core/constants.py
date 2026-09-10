@@ -102,7 +102,8 @@ SEED_BASE = 20260908
 
 
 class TypeOfFlexibility(Enum):
-    """Enum for types of flexibility."""
+    """Operational flexibility after the satellite capacity is installed."""
 
-    FLEX_CAPACITY = "flex_capacity"
-    FIXED_CAPACITY = "fixed_capacity"
+    FIXED_OPERATION = "fixed_operation"
+    ON_OFF_INSTALLED = "on_off_installed"
+    UP_TO_INSTALLED = "up_to_installed"

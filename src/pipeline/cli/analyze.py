@@ -1,7 +1,7 @@
 """Build the validation report for the generated demand scenarios.
 
-    poetry run python -m src.pipeline.cli.analyze
-    poetry run python -m src.pipeline.cli.analyze --regimes normal
+    poetry run python -m src.pipeline.cli.analyze --version v3
+    poetry run python -m src.pipeline.cli.analyze --version v3 --regimes normal
 
 Exits non-zero if any contract invariant fails, so it can gate a run.
 """
@@ -9,7 +9,7 @@ Exits non-zero if any contract invariant fails, so it can gate a run.
 import argparse
 import sys
 
-from src.core.constants import REGIMES
+from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
 from src.core.logging import get_logger
 from src.pipeline.reports.scenarios import build_report
 
@@ -19,9 +19,10 @@ logger = get_logger("AnalyzeScenarios")
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--regimes", nargs="+", choices=REGIMES, default=list(REGIMES))
+    parser.add_argument("--version", default=DEFAULT_SCENARIO_VERSION, help="scenario version whose validation set is analyzed")
     args = parser.parse_args()
 
-    path, n_failed = build_report(args.regimes)
+    path, n_failed = build_report(args.regimes, version=args.version)
     print(f"\nReporte: {path}")
     print(f"Abrir con: open {path}")
 

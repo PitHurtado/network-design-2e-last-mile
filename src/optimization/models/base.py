@@ -245,7 +245,7 @@ class BaseSAAModel:
             scenario_dependent = averaged[0]
             for expr in averaged[1:]:
                 scenario_dependent = scenario_dependent + expr
-            total = (1 / n_scenarios) * scenario_dependent
+            total = (self.instance.horizon_weight / n_scenarios) * scenario_dependent
         for expr in deterministic:
             total = expr if total is None else expr + total
 

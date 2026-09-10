@@ -4,3 +4,7 @@
 subclass that declares which optional blocks it enables. See `base` for the
 block catalogue.
 """
+
+from src.optimization.models.flex import FlexSAAModel
+
+__all__ = ["FlexSAAModel"]

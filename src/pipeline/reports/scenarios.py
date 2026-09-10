@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from src.core.constants import N_PERIODS, PATH_SHAPE_PARAMS, REGIME_TARGETS, RESULTS_DIR
+from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS, PATH_SHAPE_PARAMS, REGIME_TARGETS, RESULTS_DIR
 from src.core.logging import get_logger
 from src.pipeline.demand_panel import load_panel
 from src.pipeline.generate import ScenarioGenerator, load_generated
@@ -92,17 +92,17 @@ code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 0.9
 # ── Data assembly ─────────────────────────────────────────────────────────────
 
 
-def load_all(regimes: list[str]) -> dict:
+def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dict:
     """Load parameters, the historical panel and every generated regime."""
     with open(PATH_SHAPE_PARAMS) as file:
         params = json.load(file)
     panel = load_panel()
-    generated = {regime: load_generated(regime) for regime in regimes}
+    generated = {regime: load_generated(regime, version=version, scenario_set="validation") for regime in regimes}
     manifests = {}
     for regime in regimes:
         from src.core.constants import scenario_dir
 
-        with open(scenario_dir(regime, scenario_set="validation") / "manifest.json") as file:
+        with open(scenario_dir(regime, version, "validation") / "manifest.json") as file:
             manifests[regime] = json.load(file)
     return {"params": params, "panel": panel, "generated": generated, "manifests": manifests}
 
@@ -444,12 +444,12 @@ def checks_table(data: dict) -> tuple[str, int]:
 # ── Report ────────────────────────────────────────────────────────────────────
 
 
-def build_report(regimes: list[str], output_path=None):
+def build_report(regimes: list[str], output_path=None, version: str = DEFAULT_SCENARIO_VERSION):
     """Assemble the validation report."""
-    output_path = output_path or (RESULTS_DIR / "analysis" / "scenario_validation.html")
+    output_path = output_path or (RESULTS_DIR / "analysis" / version / "scenario_validation.html")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    data = load_all(regimes)
+    data = load_all(regimes, version)
     params = data["params"]
     panel = data["panel"]
     included = panel[~panel["excluded"]]

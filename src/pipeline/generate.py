@@ -258,7 +258,7 @@ def _annual_expected_payload(generator: ScenarioGenerator, regime: str, version:
         "type": "annual_expected",
         "periods": 1,
         "source": "mean over the 12 periods of the expected scenario",
-        "optimization_compatible": False,
+        "optimization_compatible": True,
         "pixels": pixels,
     }
 
@@ -326,7 +326,7 @@ def generate_set(
         "stop_floor_share": generator.floor_hits / max(generator.cells_drawn, 1),
         "pixels": len(generator.pixels),
         "periods": 1 if scenario_set == "annual_expected" else N_PERIODS,
-        "optimization_compatible": scenario_set in {"optimization", "validation", "expected"},
+        "optimization_compatible": scenario_set in {"optimization", "validation", "expected", "annual_expected"},
     }
     logger.info(
         f"[{version}/{regime}/{scenario_set}] {len(ids)} scenarios | mean total {summary['period_total_mean']:,.0f} "

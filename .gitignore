@@ -2,6 +2,7 @@
 # El árbol pre-refactor: existe solo localmente, es la implementación de referencia.
 OLD/
 OLD.zip
+docs/
 
 # Salidas de modelos y reportes generados
 results/
