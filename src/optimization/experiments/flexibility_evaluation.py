@@ -30,7 +30,11 @@ def _matching_evaluation(output_path: Path, fixed_installation: dict[str, float]
             continue
         payload = json.loads(candidate.read_text())
         candidate_y = {row["facility"]: row["capacity"] for row in payload.get("fixed_installation", [])}
-        if candidate_y == fixed_installation and len(payload.get("scenario_costs", [])) == VALIDATION_SCENARIOS:
+        if (
+            candidate_y == fixed_installation
+            and payload.get("assignment_variables") == "binary"
+            and len(payload.get("scenario_costs", [])) == VALIDATION_SCENARIOS
+        ):
             return payload
     return None
 

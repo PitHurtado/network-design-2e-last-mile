@@ -188,6 +188,17 @@ poetry run python -m src.optimization.cli.report_flexibility_evaluation --versio
 open results/flexibility_evaluation/v3/vss_comparison.html
 ```
 
+Para reportar el VSS teórico no negativo, resuelve también el problema estocástico de
+referencia sobre los mismos 100 escenarios (`RP_100`):
+
+```bash
+poetry run python -m src.optimization.cli.run_validation_benchmark --version v3 --time-limit 600
+poetry run python -m src.optimization.cli.report_flexibility_evaluation --version v3
+```
+
+Si `RP_100` alcanza `TIME_LIMIT`, el reporte entrega un intervalo de VSS basado en el
+incumbente y la cota del solver; sólo muestra un VSS puntual cuando el benchmark es óptimo.
+
 ## Referencia de comandos
 
 | Comando | Propósito | Salida principal |
@@ -202,6 +213,7 @@ open results/flexibility_evaluation/v3/vss_comparison.html
 | `src.optimization.cli.run_flexibility_experiment` | Corre las configuraciones de flexibilidad. | `results/flexibility/<versión>/.../result.json` |
 | `src.optimization.cli.report_flexibility_experiment` | Construye la comparación de flexibilidad. | `flexibility_comparison.html`, `summary.json` |
 | `src.optimization.cli.evaluate_flexibility_experiment` | Evalúa decisiones fijas sobre validación. | `results/flexibility_evaluation/<versión>/.../evaluation.json` |
+| `src.optimization.cli.run_validation_benchmark` | Resuelve `RP_100` para el VSS teórico. | `results/flexibility_validation_benchmark/<versión>/.../rp_validation.json` |
 | `src.optimization.cli.report_flexibility_evaluation` | Construye el reporte VSS. | `vss_comparison.html`, `vss_summary.json` |
 
 Para ver argumentos disponibles de cualquier comando:
