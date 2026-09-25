@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
+from src.scenarios.generation.dependence import Independent, SpatialJoint
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.spatial import pixel_neighbor_pairs
 
@@ -21,11 +22,10 @@ class DependenceComparisonTests(unittest.TestCase):
             sigma_drop=np.full(n_pixels, 0.2),
             sigma_common_stop=0.0,
             sigma_common_drop=0.0,
-            cholesky=cholesky,
         )
         seed = np.random.SeedSequence([123, 100]).spawn(1)[0]
-        independent = ScenarioGenerator(**kwargs, dependence_mode="independent")
-        joint = ScenarioGenerator(**kwargs, dependence_mode="spatial_joint")
+        independent = ScenarioGenerator(**kwargs, dependence=Independent())
+        joint = ScenarioGenerator(**kwargs, dependence=SpatialJoint(cholesky))
         independent_stop, independent_drop = independent.draw(np.random.default_rng(seed), 1.0)
         joint_stop, joint_drop = joint.draw(np.random.default_rng(seed), 1.0)
 

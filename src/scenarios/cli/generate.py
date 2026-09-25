@@ -8,7 +8,8 @@ import json
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
 from src.core.contract import ScenarioLayout
-from src.scenarios.generation.generator import ScenarioGenerator, generate_set, write_manifest
+from src.scenarios.generation.generator import ScenarioGenerator
+from src.scenarios.generation.sets import ScenarioSetWriter, SetSpec
 from src.tools.io import sha256_json
 from src.tools.logging import get_logger
 
@@ -39,6 +40,7 @@ def main() -> None:
     regimes = REGIMES if args.all else (args.regime,)
 
     digest = sha256_json(params)
+    writer = ScenarioSetWriter(ScenarioLayout.generated(args.version))
     for regime in regimes:
         multiplier = params["regimes"][regime]["multiplier"]
         for scenario_set, count in (
@@ -47,13 +49,13 @@ def main() -> None:
             ("expected", 1),
             ("annual_expected", 1),
         ):
-            directory = ScenarioLayout.generated(args.version).set_dir(regime, scenario_set)
+            directory = writer.layout.set_dir(regime, scenario_set)
             if directory.exists() and any(directory.iterdir()) and not args.overwrite:
                 parser.error(f"{directory} already exists; choose a new --version or pass --overwrite")
-            summary = generate_set(generator, regime, multiplier, scenario_set, count, args.version, args.seed_base, digest)
-            write_manifest(
+            spec = SetSpec(regime, scenario_set, count, multiplier, args.version, args.seed_base)
+            summary = writer.generate(generator, spec, digest)
+            writer.write_manifest(
                 regime,
-                args.version,
                 scenario_set,
                 {
                     **summary,

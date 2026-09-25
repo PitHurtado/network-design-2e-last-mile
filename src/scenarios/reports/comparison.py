@@ -27,11 +27,12 @@ from src.core.constants import (
     PATH_SHAPE_PARAMS,
     RESULTS_DIR,
 )
-from src.scenarios.generation.generator import load_comparison_generated
+from src.core.contract import DEPENDENCE_METHODS, ScenarioLayout
+from src.scenarios.generation.sets import ScenarioSetWriter
 from src.scenarios.spatial import cell_center, haversine_matrix, pixel_centroids, pixel_grid_cells, pixel_neighbor_pairs
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
-METHODS = ("independent", "spatial_joint", "historical_bootstrap")
+METHODS = DEPENDENCE_METHODS
 METHOD_LABELS = {
     "independent": "Baseline: muestreo independiente",
     "spatial_joint": "Enfoque paramétrico: cópula espacial",
@@ -1157,7 +1158,8 @@ def build_comparison_report(
         params = json.load(file)
     panel_path = PATH_SHAPE_PARAMS.parent / "panel_monthly.csv"
     panel = pd.read_csv(panel_path)
-    generated = {method: load_comparison_generated(regime, method, version) for method in METHODS}
+    writer = ScenarioSetWriter(ScenarioLayout.for_comparison(version))
+    generated = {method: writer.load_long(regime, "validation", method) for method in METHODS}
     if any(frame.empty for frame in generated.values()):
         raise ValueError("Comparison scenarios are missing; run src.scenarios.cli.compare first.")
 

@@ -10,7 +10,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, GRID_DLAT, GRID_DLON, N_PERIODS, RESULTS_DIR
-from src.scenarios.generation.generator import load_generated
+from src.core.contract import ScenarioLayout
+from src.scenarios.generation.sets import ScenarioSetWriter
 from src.scenarios.reports.scenarios import CSS, PLOTLY_CDN, REGIME_COLORS, section, to_html
 from src.scenarios.spatial import pixel_centroids
 from src.tools.logging import get_logger
@@ -42,8 +43,9 @@ def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dic
     """Load simulated scenarios only, merged with geometry and layer."""
     centroids = pixel_centroids()[["id_pixel", "layer", "lon", "lat", "n_cells"]]
     data = {}
+    writer = ScenarioSetWriter(ScenarioLayout.generated(version))
     for regime in regimes:
-        frame = load_generated(regime, version=version, scenario_set="validation")
+        frame = writer.load_long(regime, "validation")
         frame = frame.merge(centroids, on="id_pixel", how="left")
         if frame["layer"].isna().any():
             raise ValueError(f"[{regime}] pixels missing from pixel_centroids()")

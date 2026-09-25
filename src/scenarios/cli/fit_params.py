@@ -24,6 +24,7 @@ from src.core.inputs import get_pixels
 from src.scenarios.fitting.marginals import fit_marginals
 from src.scenarios.fitting.panel import load_panel
 from src.scenarios.fitting.regimes import calibrate_all
+from src.scenarios.generation.dependence import SpatialJoint
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.spatial import (
     cholesky_factor,
@@ -85,7 +86,7 @@ def main() -> None:
         print(f"  {row['h_km']:8.2f} {row['corr']:8.3f} {pred:8.3f} {int(row['n_pairs']):9d}")
 
     # ── Regime calibration ──────────────────────────────────────────────────
-    generator = ScenarioGenerator.from_fit(fitted, pixels, chol)
+    generator = ScenarioGenerator.from_fit(fitted, pixels, SpatialJoint(chol))
     base_total = generator.base_period_total()
     logger.info(f"Base per-period model demand (no regime scaling): {base_total:,.0f}")
 

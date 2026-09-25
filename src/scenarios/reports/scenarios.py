@@ -19,7 +19,9 @@ from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS, PATH_SHAPE_P
 from src.core.contract import ScenarioLayout
 from src.scenarios.fitting.marginals import fit_marginals
 from src.scenarios.fitting.panel import load_panel
-from src.scenarios.generation.generator import ScenarioGenerator, load_generated
+from src.scenarios.generation.dependence import SpatialJoint
+from src.scenarios.generation.generator import ScenarioGenerator
+from src.scenarios.generation.sets import ScenarioSetWriter
 from src.scenarios.spatial import (
     cholesky_factor,
     correlation_matrix,
@@ -99,7 +101,8 @@ def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dic
     with open(PATH_SHAPE_PARAMS) as file:
         params = json.load(file)
     panel = load_panel()
-    generated = {regime: load_generated(regime, version=version, scenario_set="validation") for regime in regimes}
+    writer = ScenarioSetWriter(ScenarioLayout.generated(version))
+    generated = {regime: writer.load_long(regime, "validation") for regime in regimes}
     manifests = {}
     for regime in regimes:
         manifests[regime] = read_json(ScenarioLayout.generated(version).set_manifest(regime, "validation"))
@@ -129,7 +132,7 @@ def roundtrip_validation(params: dict, n_periods: int, n_pixels_reference: int) 
     sigma = correlation_matrix(distances, truth["rho_km"], truth["nugget"], truth["plateau"])
 
     generator = ScenarioGenerator.from_params(params)
-    generator.cholesky = cholesky_factor(sigma)
+    generator.dependence = SpatialJoint(cholesky_factor(sigma))
     multiplier = params["regimes"]["normal"]["multiplier"]
 
     rng = np.random.default_rng(7)

@@ -238,12 +238,15 @@ def g6_reports(ws: Workspace) -> dict:
         path = build_explore(list(ALL_REGIMES), output_path=out_dir / "explore.html", version=VERSION)
         results["explore"] = _report_digest("explore", path, list(figures))
 
-    with patched(
-        {
-            "src.scenarios.reports.comparison.PATH_SHAPE_PARAMS": PARAMS,
-            "src.core.constants.PATH_COMPARISON_SCENARIOS": comparison,
-        }
-    ), figure_capture() as figures:
+    with (
+        patched(
+            {
+                "src.scenarios.reports.comparison.PATH_SHAPE_PARAMS": PARAMS,
+                "src.core.constants.PATH_COMPARISON_SCENARIOS": comparison,
+            }
+        ),
+        figure_capture() as figures,
+    ):
         from src.scenarios.reports.comparison import build_comparison_report
 
         cmp_dir = ws.path("reports", "comparison")
@@ -316,7 +319,9 @@ INSTANCE_CASES = {
 }
 
 
-def build_instance(ws: Workspace, regime: str = "normal", continuous_x: bool = False, flexibility: str = "up_to_installed", **case):
+def build_instance(
+    ws: Workspace, regime: str = "normal", continuous_x: bool = False, flexibility: str = "up_to_installed", **case
+):
     from src.optimization.instance import Instance
 
     with patched({"src.core.constants.PATH_GENERATED_SCENARIOS": generated_root(ws)}):
@@ -392,8 +397,9 @@ def g8_solve(ws: Workspace) -> dict:
 
     from src.optimization.models.uncapacitated import UncapacitatedSAAModel
 
-    instance = build_instance(ws, continuous_x=True, flexibility="fixed_operation", N=2, scenario_set="optimization",
-                              use_euclidean_distance=True)
+    instance = build_instance(
+        ws, continuous_x=True, flexibility="fixed_operation", N=2, scenario_set="optimization", use_euclidean_distance=True
+    )
     model = UncapacitatedSAAModel(instance)
     model.set_params({"TimeLimit": 600, "MIPGap": 0.0, "OutputFlag": 0, **SOLVER})
     model.build()

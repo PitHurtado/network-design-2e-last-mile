@@ -10,12 +10,9 @@ from pathlib import Path
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
 from src.core.contract import ScenarioLayout
-from src.scenarios.generation.generator import (
-    ScenarioGenerator,
-    generate_comparison_set,
-    historical_bootstrap_shocks,
-    write_comparison_manifest,
-)
+from src.scenarios.fitting.panel import load_panel
+from src.scenarios.generation.generator import ScenarioGenerator
+from src.scenarios.generation.sets import ScenarioSetWriter, SetSpec
 from src.scenarios.reports.comparison import METHODS, build_comparison_report
 from src.tools.io import sha256_json
 
@@ -42,10 +39,11 @@ def main() -> None:
         params = json.load(file)
     regimes = REGIMES if args.all else (args.regime,)
     digest = sha256_json(params)
+    writer = ScenarioSetWriter(ScenarioLayout.for_comparison(args.version))
 
     for regime in regimes:
         for method in METHODS:
-            directory = ScenarioLayout.for_comparison(args.version).set_dir(regime, "validation", method)
+            directory = writer.layout.set_dir(regime, "validation", method)
             if directory.exists() and any(directory.iterdir()) and not args.overwrite:
                 parser.error(f"{directory} already exists; choose a new --version or pass --overwrite")
             if directory.exists() and args.overwrite:
@@ -55,25 +53,12 @@ def main() -> None:
                 if manifest.exists():
                     manifest.unlink()
 
-            generator = ScenarioGenerator.from_params(params, dependence_mode=method)
-            if method == "historical_bootstrap":
-                from src.scenarios.fitting.panel import load_panel
-
-                stop_shocks, drop_shocks = historical_bootstrap_shocks(
-                    load_panel(), generator.pixels, generator.expected_stop, generator.expected_drop
-                )
-                generator.set_bootstrap_shocks(stop_shocks, drop_shocks)
-            summary = generate_comparison_set(
-                generator,
-                regime,
-                params["regimes"][regime]["multiplier"],
-                method,
-                args.n,
-                version=args.version,
-                seed_base=args.seed_base,
-                params_sha256=digest,
-            )
-            write_comparison_manifest(regime, args.version, method, "validation", summary)
+            panel = load_panel() if method == "historical_bootstrap" else None
+            generator = ScenarioGenerator.from_params(params, method=method, panel=panel)
+            multiplier = params["regimes"][regime]["multiplier"]
+            spec = SetSpec(regime, "validation", args.n, multiplier, args.version, args.seed_base, method=method)
+            summary = writer.generate(generator, spec, params_sha256=digest)
+            writer.write_manifest(regime, "validation", summary, method=method)
 
         output = Path(args.output) if args.output and len(regimes) == 1 else None
         report = build_comparison_report(regime, version=args.version, output_path=output)
