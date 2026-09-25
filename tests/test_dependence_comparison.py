@@ -5,8 +5,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.pipeline.generate import ScenarioGenerator
-from src.pipeline.spatial import pixel_neighbor_pairs
+from src.scenarios.generation.generator import ScenarioGenerator
+from src.scenarios.spatial import pixel_neighbor_pairs
 
 
 class DependenceComparisonTests(unittest.TestCase):

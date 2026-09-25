@@ -1,6 +1,6 @@
 """Generate versioned demand scenario sets from fitted shape parameters.
 
-poetry run python -m src.pipeline.cli.generate --all --version v3
+poetry run python -m src.scenarios.cli.generate --all --version v3
 """
 
 import argparse
@@ -8,7 +8,7 @@ import json
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
 from src.core.contract import ScenarioLayout
-from src.pipeline.generate import ScenarioGenerator, generate_set, write_manifest
+from src.scenarios.generation.generator import ScenarioGenerator, generate_set, write_manifest
 from src.tools.io import sha256_json
 from src.tools.logging import get_logger
 
@@ -30,7 +30,7 @@ def main() -> None:
         parser.error("pass --regime <name> or --all")
 
     if not PATH_SHAPE_PARAMS.exists():
-        parser.error(f"{PATH_SHAPE_PARAMS} not found — run src.pipeline.cli.fit_params first")
+        parser.error(f"{PATH_SHAPE_PARAMS} not found — run src.scenarios.cli.fit_params first")
 
     with open(PATH_SHAPE_PARAMS) as file:
         params = json.load(file)

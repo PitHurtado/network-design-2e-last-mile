@@ -19,7 +19,7 @@ import pandas as pd
 from scipy.optimize import least_squares
 
 from src.core.constants import GRID_DLAT, GRID_DLON, GRID_LAT0, GRID_LON0, GRID_N_COLS, GRID_N_ROWS
-from src.pipeline.crosswalk import build_footprints, load_manual_crosswalk
+from src.scenarios.crosswalk import build_footprints, load_manual_crosswalk
 from src.tools.logging import get_logger
 
 logger = get_logger("Spatial")

@@ -1,8 +1,6 @@
-"""Shared foundation: paths, parameters, domain entities, logging and raw-input readers.
+"""Shared domain: parameters, entities, raw-input readers and the scenario contract.
 
-Both `src.pipeline` and `src.optimization` depend on this package; neither depends on
-the other. That direction is the whole point of the split, so it is worth checking:
-
-    grep -rn "^from src\\.optimization" src/pipeline   # must print nothing
-    grep -rn "^from src\\.pipeline"     src/optimization   # must print nothing
+`src.scenarios` and `src.optimization` both depend on this package and never on each
+other; they meet on disk, through `src.core.contract`. Checked by
+`tests/test_architecture.py`.
 """

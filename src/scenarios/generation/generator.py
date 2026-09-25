@@ -30,7 +30,7 @@ import pandas as pd
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, SEED_BASE
 from src.core.contract import ScenarioLayout, scenario_id
-from src.pipeline.marginals import expected_matrix
+from src.scenarios.fitting.marginals import expected_matrix
 from src.tools.io import write_json
 from src.tools.logging import get_logger
 
@@ -117,7 +117,7 @@ class ScenarioGenerator:
         """
         # Imported here to keep the module importable without the spatial deps
         # when only reading generated scenarios.
-        from src.pipeline.spatial import cholesky_factor, correlation_matrix, haversine_matrix, pixel_centroids
+        from src.scenarios.spatial import cholesky_factor, correlation_matrix, haversine_matrix, pixel_centroids
 
         pixels = list(params["pixels"])
         expectation = {}

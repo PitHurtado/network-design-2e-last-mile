@@ -1,6 +1,6 @@
 """Fit the scenario shape parameters and write `shape_params.json`.
 
-    poetry run python -m src.pipeline.cli.fit_params
+    poetry run python -m src.scenarios.cli.fit_params
 
 Produces the single reproducible input of the whole study: pixel levels, layer
 seasonality, dispersion, the spatial decay, and the regime multipliers.
@@ -21,11 +21,11 @@ from src.core.constants import (
     SEED_BASE,
 )
 from src.core.inputs import get_pixels
-from src.pipeline.demand_panel import load_panel
-from src.pipeline.generate import ScenarioGenerator
-from src.pipeline.marginals import fit_marginals
-from src.pipeline.regimes import calibrate_all
-from src.pipeline.spatial import (
+from src.scenarios.fitting.marginals import fit_marginals
+from src.scenarios.fitting.panel import load_panel
+from src.scenarios.fitting.regimes import calibrate_all
+from src.scenarios.generation.generator import ScenarioGenerator
+from src.scenarios.spatial import (
     cholesky_factor,
     correlation_matrix,
     empirical_correlogram,

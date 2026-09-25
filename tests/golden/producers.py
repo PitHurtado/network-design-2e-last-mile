@@ -90,12 +90,12 @@ def g1_fit(ws: Workspace) -> dict:
     out = ws.path("g1") / "shape_params.json"
     with patched(
         {
-            "src.pipeline.cli.fit_params.PATH_SHAPE_PARAMS": out,
-            "src.pipeline.demand_panel.PATH_PANEL_MONTHLY": PANEL,
+            "src.scenarios.cli.fit_params.PATH_SHAPE_PARAMS": out,
+            "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
             "sys.argv": ["fit_params", "--n", "5"],
         }
     ):
-        from src.pipeline.cli import fit_params
+        from src.scenarios.cli import fit_params
 
         fit_params.main()
     return _params_summary(json.loads(out.read_text()), "g1")
@@ -106,11 +106,11 @@ def g2_recalibrate(ws: Workspace) -> dict:
     shutil.copy(PARAMS, out)
     with patched(
         {
-            "src.pipeline.cli.recalibrate_regimes.PATH_SHAPE_PARAMS": out,
+            "src.scenarios.cli.recalibrate_regimes.PATH_SHAPE_PARAMS": out,
             "sys.argv": ["recalibrate_regimes", "--validation-n", "5"],
         }
     ):
-        from src.pipeline.cli import recalibrate_regimes
+        from src.scenarios.cli import recalibrate_regimes
 
         recalibrate_regimes.main()
     return _params_summary(json.loads(out.read_text()), "g2")
@@ -126,12 +126,12 @@ def generated_root(ws: Workspace) -> Path:
         root = ws.path("scenarios")
         with patched(
             {
-                "src.pipeline.cli.generate.PATH_SHAPE_PARAMS": PARAMS,
+                "src.scenarios.cli.generate.PATH_SHAPE_PARAMS": PARAMS,
                 "src.core.constants.PATH_GENERATED_SCENARIOS": root,
                 "sys.argv": ["generate", "--all", "--version", VERSION, "--optimization-n", "3", "--validation-n", "3"],
             }
         ):
-            from src.pipeline.cli import generate
+            from src.scenarios.cli import generate
 
             generate.main()
         return root
@@ -148,14 +148,14 @@ def comparison_root(ws: Workspace) -> Path:
         root = ws.path("comparison")
         with patched(
             {
-                "src.pipeline.cli.compare.PATH_SHAPE_PARAMS": PARAMS,
-                "src.pipeline.cli.compare.build_comparison_report": mock.MagicMock(return_value=Path("skipped")),
+                "src.scenarios.cli.compare.PATH_SHAPE_PARAMS": PARAMS,
+                "src.scenarios.cli.compare.build_comparison_report": mock.MagicMock(return_value=Path("skipped")),
                 "src.core.constants.PATH_COMPARISON_SCENARIOS": root,
-                "src.pipeline.demand_panel.PATH_PANEL_MONTHLY": PANEL,
+                "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
                 "sys.argv": ["compare", "--regime", "normal", "--version", VERSION, "--n", "3"],
             }
         ):
-            from src.pipeline.cli import compare
+            from src.scenarios.cli import compare
 
             compare.main()
         return root
@@ -177,7 +177,7 @@ def g4_compare(ws: Workspace) -> dict:
 
 
 def g5_spatial(ws: Workspace) -> dict:  # pylint: disable=unused-argument
-    from src.pipeline.spatial import cholesky_factor, correlation_matrix, haversine_matrix, pixel_centroids, pixel_neighbor_pairs
+    from src.scenarios.spatial import cholesky_factor, correlation_matrix, haversine_matrix, pixel_centroids, pixel_neighbor_pairs
 
     params = _load_params()
     pixels = params["pixels"]
@@ -221,30 +221,30 @@ def g6_reports(ws: Workspace) -> dict:
     results = {}
 
     scenario_patches = {
-        "src.pipeline.reports.scenarios.PATH_SHAPE_PARAMS": PARAMS,
-        "src.pipeline.demand_panel.PATH_PANEL_MONTHLY": PANEL,
+        "src.scenarios.reports.scenarios.PATH_SHAPE_PARAMS": PARAMS,
+        "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
         "src.core.constants.PATH_GENERATED_SCENARIOS": generated,
     }
     with patched(scenario_patches), figure_capture() as figures:
-        from src.pipeline.reports.scenarios import aggregate_cv_impact, build_report
+        from src.scenarios.reports.scenarios import aggregate_cv_impact, build_report
 
         path, n_failed = build_report(list(ALL_REGIMES), output_path=out_dir / "validation.html", version=VERSION)
         results["validation"] = {**_report_digest("validation", path, list(figures)), "n_failed": n_failed}
         results["aggregate_cv"] = aggregate_cv_impact(_load_params())
 
     with patched(scenario_patches), figure_capture() as figures:
-        from src.pipeline.reports.explore import build_report as build_explore
+        from src.scenarios.reports.explore import build_report as build_explore
 
         path = build_explore(list(ALL_REGIMES), output_path=out_dir / "explore.html", version=VERSION)
         results["explore"] = _report_digest("explore", path, list(figures))
 
     with patched(
         {
-            "src.pipeline.reports.comparison.PATH_SHAPE_PARAMS": PARAMS,
+            "src.scenarios.reports.comparison.PATH_SHAPE_PARAMS": PARAMS,
             "src.core.constants.PATH_COMPARISON_SCENARIOS": comparison,
         }
     ), figure_capture() as figures:
-        from src.pipeline.reports.comparison import build_comparison_report
+        from src.scenarios.reports.comparison import build_comparison_report
 
         cmp_dir = ws.path("reports", "comparison")
         path = build_comparison_report("normal", version=VERSION, output_path=cmp_dir / "comparison.html")

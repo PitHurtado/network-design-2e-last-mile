@@ -3,7 +3,7 @@
 Use this when the regime policy changes but the fitted historical marginals and
 spatial dependence do not need to be refit:
 
-    python -m src.pipeline.cli.recalibrate_regimes --n 50
+    python -m src.scenarios.cli.recalibrate_regimes --n 50
 """
 
 import argparse
@@ -13,8 +13,8 @@ from datetime import date
 import numpy as np
 
 from src.core.constants import PATH_SHAPE_PARAMS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, REGIME_TARGETS, SEED_BASE
-from src.pipeline.generate import ScenarioGenerator
-from src.pipeline.regimes import calibrate_all
+from src.scenarios.fitting.regimes import calibrate_all
+from src.scenarios.generation.generator import ScenarioGenerator
 
 
 def main() -> None:

@@ -1,7 +1,7 @@
 """Build the validation report for the generated demand scenarios.
 
-    poetry run python -m src.pipeline.cli.analyze --version v3
-    poetry run python -m src.pipeline.cli.analyze --version v3 --regimes normal
+    poetry run python -m src.scenarios.cli.analyze --version v3
+    poetry run python -m src.scenarios.cli.analyze --version v3 --regimes normal
 
 Exits non-zero if any contract invariant fails, so it can gate a run.
 """
@@ -10,7 +10,7 @@ import argparse
 import sys
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
-from src.pipeline.reports.scenarios import build_report
+from src.scenarios.reports.scenarios import build_report
 from src.tools.logging import get_logger
 
 logger = get_logger("AnalyzeScenarios")

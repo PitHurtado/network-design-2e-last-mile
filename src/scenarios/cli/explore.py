@@ -1,13 +1,13 @@
 """Build the comparative explorer for low, normal, and high demand regimes.
 
-poetry run python -m src.pipeline.cli.explore --version v3
+poetry run python -m src.scenarios.cli.explore --version v3
 """
 
 import argparse
 from pathlib import Path
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
-from src.pipeline.reports.explore import build_report
+from src.scenarios.reports.explore import build_report
 
 
 def main() -> None:

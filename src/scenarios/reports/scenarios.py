@@ -17,10 +17,10 @@ import plotly.graph_objects as go
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS, PATH_SHAPE_PARAMS, REGIME_TARGETS, RESULTS_DIR
 from src.core.contract import ScenarioLayout
-from src.pipeline.demand_panel import load_panel
-from src.pipeline.generate import ScenarioGenerator, load_generated
-from src.pipeline.marginals import fit_marginals
-from src.pipeline.spatial import (
+from src.scenarios.fitting.marginals import fit_marginals
+from src.scenarios.fitting.panel import load_panel
+from src.scenarios.generation.generator import ScenarioGenerator, load_generated
+from src.scenarios.spatial import (
     cholesky_factor,
     correlation_matrix,
     empirical_correlogram,

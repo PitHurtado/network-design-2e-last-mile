@@ -1,7 +1,7 @@
 """Generate and report paired independent and spatial demand scenarios.
 
 Example:
-    poetry run python -m src.pipeline.cli.compare --all --version v4 --n 100
+    poetry run python -m src.scenarios.cli.compare --all --version v4 --n 100
 """
 
 import argparse
@@ -10,13 +10,13 @@ from pathlib import Path
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
 from src.core.contract import ScenarioLayout
-from src.pipeline.generate import (
+from src.scenarios.generation.generator import (
     ScenarioGenerator,
     generate_comparison_set,
     historical_bootstrap_shocks,
     write_comparison_manifest,
 )
-from src.pipeline.reports.comparison import METHODS, build_comparison_report
+from src.scenarios.reports.comparison import METHODS, build_comparison_report
 from src.tools.io import sha256_json
 
 
@@ -57,7 +57,7 @@ def main() -> None:
 
             generator = ScenarioGenerator.from_params(params, dependence_mode=method)
             if method == "historical_bootstrap":
-                from src.pipeline.demand_panel import load_panel
+                from src.scenarios.fitting.panel import load_panel
 
                 stop_shocks, drop_shocks = historical_bootstrap_shocks(
                     load_panel(), generator.pixels, generator.expected_stop, generator.expected_drop

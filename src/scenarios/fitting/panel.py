@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from src.core.constants import EXCLUDED_YEAR_MONTHS, EXPECTED_FANOUT_SHARE, PATH_PANEL_MONTHLY, PATH_RAW_DEMAND
-from src.pipeline.crosswalk import assign_customers, load_manual_crosswalk
+from src.scenarios.crosswalk import assign_customers, load_manual_crosswalk
 from src.tools.logging import get_logger
 
 logger = get_logger("DemandPanel")

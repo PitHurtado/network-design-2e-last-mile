@@ -1,11 +1,11 @@
 """Build the monthly demand panel from the raw delivery-event file.
 
-poetry run python -m src.pipeline.cli.build_panel
+poetry run python -m src.scenarios.cli.build_panel
 """
 
 import argparse
 
-from src.pipeline.demand_panel import build_panel, save_panel
+from src.scenarios.fitting.panel import build_panel, save_panel
 from src.tools.logging import get_logger
 
 logger = get_logger("BuildPanel")

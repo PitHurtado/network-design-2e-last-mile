@@ -27,8 +27,8 @@ from src.core.constants import (
     PATH_SHAPE_PARAMS,
     RESULTS_DIR,
 )
-from src.pipeline.generate import load_comparison_generated
-from src.pipeline.spatial import cell_center, haversine_matrix, pixel_centroids, pixel_grid_cells, pixel_neighbor_pairs
+from src.scenarios.generation.generator import load_comparison_generated
+from src.scenarios.spatial import cell_center, haversine_matrix, pixel_centroids, pixel_grid_cells, pixel_neighbor_pairs
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
 METHODS = ("independent", "spatial_joint", "historical_bootstrap")
@@ -1159,7 +1159,7 @@ def build_comparison_report(
     panel = pd.read_csv(panel_path)
     generated = {method: load_comparison_generated(regime, method, version) for method in METHODS}
     if any(frame.empty for frame in generated.values()):
-        raise ValueError("Comparison scenarios are missing; run src.pipeline.cli.compare first.")
+        raise ValueError("Comparison scenarios are missing; run src.scenarios.cli.compare first.")
 
     output_dir = output_path.parent if output_path else RESULTS_DIR / "comparison" / version / regime
     output_dir.mkdir(parents=True, exist_ok=True)

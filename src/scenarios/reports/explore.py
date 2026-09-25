@@ -10,9 +10,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, GRID_DLAT, GRID_DLON, N_PERIODS, RESULTS_DIR
-from src.pipeline.generate import load_generated
-from src.pipeline.reports.scenarios import CSS, PLOTLY_CDN, REGIME_COLORS, section, to_html
-from src.pipeline.spatial import pixel_centroids
+from src.scenarios.generation.generator import load_generated
+from src.scenarios.reports.scenarios import CSS, PLOTLY_CDN, REGIME_COLORS, section, to_html
+from src.scenarios.spatial import pixel_centroids
 from src.tools.logging import get_logger
 
 logger = get_logger("ExploreScenarios")
