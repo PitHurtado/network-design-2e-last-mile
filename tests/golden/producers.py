@@ -324,17 +324,18 @@ INSTANCE_CASES = {
 def build_instance(
     ws: Workspace, regime: str = "normal", continuous_x: bool = False, flexibility: str = "up_to_installed", **case
 ):
-    from src.optimization.instance import Instance
+    from src.optimization.instance import InstanceBuilder, InstanceSpec
 
     with patched({"src.core.constants.PATH_GENERATED_SCENARIOS": generated_root(ws)}):
-        return Instance(
+        spec = InstanceSpec(
             id_instance="golden",
+            n_scenarios=case.pop("N"),
+            regime=regime,
             is_continuous_var_x=continuous_x,
             type_of_flexibility=flexibility,
-            regime=regime,
-            scenario_version=VERSION,
             **case,
         )
+        return InstanceBuilder.for_version(VERSION).build(spec)
 
 
 def g7_ca(ws: Workspace) -> dict:
@@ -342,16 +343,6 @@ def g7_ca(ws: Workspace) -> dict:
 
 
 # ── G8: solves ────────────────────────────────────────────────────────────────
-
-
-def _pinned_model():
-    from src.optimization.models.flex import FlexSAAModel
-
-    class PinnedFlexSAAModel(FlexSAAModel):
-        def set_params(self, params):
-            super().set_params({**params, **SOLVER})
-
-    return PinnedFlexSAAModel
 
 
 def _clean_payload(payload: dict, ws: Workspace) -> dict:
@@ -363,16 +354,19 @@ def _clean_payload(payload: dict, ws: Workspace) -> dict:
 
 def g8_solve(ws: Workspace) -> dict:
     from src.optimization.experiments import flexibility as flexibility_module
+    from src.optimization.experiments.flexibility_evaluation import SOLUTION_CASES, evaluate_experiment
+    from src.optimization.experiments.runner import ExperimentRunner
 
     cases = {**flexibility_module.CASES, "optimization": {**flexibility_module.CASES["optimization"], "n_scenarios": 2}}
     results_root = ws.path("results")
     with patched(
         {
             "src.core.constants.PATH_GENERATED_SCENARIOS": generated_root(ws),
-            "src.optimization.experiments.flexibility.FlexSAAModel": _pinned_model(),
             "src.optimization.experiments.flexibility.CASES": cases,
+            "src.optimization.experiments.flexibility_evaluation.VALIDATION_SCENARIOS": 3,
         }
     ):
+        runner = ExperimentRunner.for_version(VERSION, solver_overrides=SOLVER)
         runs = flexibility_module.run_experiment(
             VERSION,
             ["normal"],
@@ -381,20 +375,18 @@ def g8_solve(ws: Workspace) -> dict:
             time_limit=600.0,
             mip_gap=0.0,
             output_root=results_root / "flexibility",
+            runner=runner,
+        )
+        evaluations = evaluate_experiment(
+            VERSION,
+            ["normal"],
+            list(FLEXIBILITIES),
+            list(SOLUTION_CASES),
+            time_limit=600.0,
+            results_root=results_root,
+            runner=runner,
         )
     out = {"runs": [_clean_payload(run, ws) for run in runs]}
-
-    with patched(
-        {
-            "src.core.constants.PATH_GENERATED_SCENARIOS": generated_root(ws),
-            "src.optimization.experiments.flexibility_evaluation.FlexSAAModel": _pinned_model(),
-            "src.optimization.experiments.flexibility_evaluation.RESULTS_DIR": results_root,
-            "src.optimization.experiments.flexibility_evaluation.VALIDATION_SCENARIOS": 3,
-        }
-    ):
-        from src.optimization.experiments.flexibility_evaluation import SOLUTION_CASES, evaluate_experiment
-
-        evaluations = evaluate_experiment(VERSION, ["normal"], list(FLEXIBILITIES), list(SOLUTION_CASES), time_limit=600.0)
     out["evaluations"] = [_clean_payload(item, ws) for item in evaluations]
 
     from src.optimization.models.uncapacitated import UncapacitatedSAAModel

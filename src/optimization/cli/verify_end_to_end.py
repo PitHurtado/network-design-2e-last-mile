@@ -19,8 +19,8 @@ regimes mean anything.
 import argparse
 import sys
 
-from src.core.constants import REGIMES
-from src.optimization.instance import Instance
+from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
+from src.optimization.instance import InstanceBuilder, InstanceSpec
 from src.optimization.models.uncapacitated import UncapacitatedSAAModel
 from src.tools.logging import get_logger
 
@@ -29,13 +29,14 @@ logger = get_logger("VerifyEndToEnd")
 
 def run_regime(regime: str, n_scenarios: int, max_run_time: float) -> dict:
     """Build the instance, run the CA and solve the uncapacitated model."""
-    instance = Instance(
-        id_instance=f"verify_{regime}",
-        is_continuous_var_x=True,
-        type_of_flexibility="fixed_capacity",
-        N=n_scenarios,
-        regime=regime,
-        use_euclidean_distance=True,
+    instance = InstanceBuilder.for_version(DEFAULT_SCENARIO_VERSION).build(
+        InstanceSpec(
+            id_instance=f"verify_{regime}",
+            n_scenarios=n_scenarios,
+            regime=regime,
+            is_continuous_var_x=True,
+            use_euclidean_distance=True,
+        )
     )
 
     model = UncapacitatedSAAModel(instance)

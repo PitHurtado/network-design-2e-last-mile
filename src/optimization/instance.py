@@ -1,9 +1,15 @@
-"""Module of class Instance."""
+"""An `Instance` of the two-echelon problem, and the builder that assembles one.
+
+`InstanceSpec` says which instance: regime, scenario set, how many scenarios, horizon.
+`InstanceBuilder` reads those scenarios through a `ScenarioLayout`, loads facilities and
+vehicles, and runs the routing-cost model (the Continuous Approximation by default).
+`Instance` is the plain result the models read.
+"""
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS
+from src.core.constants import N_PERIODS
 from src.core.contract import ScenarioLayout
 from src.core.entities import Facility, Vehicle
 from src.core.inputs import get_facilities, get_vehicles
@@ -24,65 +30,72 @@ class ConfigurationInstance:
     regime: str
 
 
-class Instance:
-    """Class to define an instance of the two-echelon problem.
+@dataclass(frozen=True)
+class InstanceSpec:
+    """Which instance to build.
 
-    Scenario selection is explicit: `N` scenarios of the given `regime`, or the ids
-    passed in `scenario_ids`. The previous version had three selection branches in
-    which a missing sampling file left the scenario list empty, and the objective
-    then divided by zero; here a missing scenario file raises.
+    Scenario selection is explicit: the first `n_scenarios` ids of the set manifest, or
+    exactly `scenario_ids`. A missing scenario file raises rather than leaving the
+    scenario list empty (the objective divides by its length).
     """
+
+    n_scenarios: int
+    regime: str = "normal"
+    scenario_set: str = "optimization"
+    periods: int = N_PERIODS
+    is_continuous_var_x: bool = False
+    type_of_flexibility: str = "fixed_operation"
+    use_euclidean_distance: bool = False
+    scenario_ids: Optional[tuple[str, ...]] = None
+    facilities_subset: Optional[tuple[str, ...]] = None
+    id_instance: str = "instance"
+
+    def __post_init__(self):
+        if self.periods not in (N_PERIODS, 1):
+            raise ValueError(
+                f"periods={self.periods}; supported planning horizons are {N_PERIODS} and the one-period annual aggregate."
+            )
+        if self.periods == 1 and self.scenario_set != "annual_expected":
+            raise ValueError("The one-period horizon is reserved for the annual_expected scenario set.")
+
+    @property
+    def horizon_weight(self) -> int:
+        # annual_expected stores one average period; its variable costs are scaled back
+        # to the annual 12-period horizon while installation stays one-time.
+        return N_PERIODS if self.scenario_set == "annual_expected" else 1
+
+
+class Instance:  # pylint: disable=too-many-instance-attributes
+    """One instance of the two-echelon problem, routing costs included."""
 
     def __init__(
         self,
-        id_instance: str,
-        is_continuous_var_x: bool,
-        type_of_flexibility: str,
-        N: int,
-        regime: str = "normal",
-        periods: int = N_PERIODS,
-        scenario_ids: Optional[List[str]] = None,
-        scenario_version: Optional[str] = None,
-        scenario_set: str = "optimization",
-        use_euclidean_distance: bool = False,
-        facilities_subset: Optional[List[str]] = None,
-    ):  # pylint: disable=too-many-arguments
-        self.id_instance = id_instance
-        self.regime = regime
-        self.scenario_version = scenario_version
-        self.scenario_set = scenario_set
-        self.use_euclidean_distance = use_euclidean_distance
-        self.config = ConfigurationInstance(
-            is_continuous_var_x=is_continuous_var_x,
-            type_of_flexibility=type_of_flexibility,
-            N=N,
-            regime=regime,
-        )
-
-        if periods not in (N_PERIODS, 1):
-            raise ValueError(
-                f"periods={periods}; supported planning horizons are {N_PERIODS} and the one-period annual aggregate."
-            )
-        if periods == 1 and scenario_set != "annual_expected":
-            raise ValueError("The one-period horizon is reserved for the annual_expected scenario set.")
-        self.periods = periods
-        # annual_expected stores one average period; scale its variable costs back to
-        # the annual 12-period horizon while keeping installation one-time.
-        self.horizon_weight = N_PERIODS if scenario_set == "annual_expected" else 1
-
-        self.vehicles: Dict[str, Vehicle] = get_vehicles()
-        self.facilities: Dict[str, Facility] = get_facilities()
-        if facilities_subset is not None:
-            self.facilities = {k: v for k, v in self.facilities.items() if k in facilities_subset}
-
-        self.layout = ScenarioLayout.generated(scenario_version or DEFAULT_SCENARIO_VERSION)
-        self.scenario_ids_requested = scenario_ids or self.layout.scenario_ids(regime, scenario_set, N)
-        self.scenarios: Dict[str, Scenario] = self.__read_scenarios()
-        self.scenarios_ids = list(self.scenarios)
-        if not self.scenarios:
+        spec: InstanceSpec,
+        vehicles: Dict[str, Vehicle],
+        facilities: Dict[str, Facility],
+        scenarios: Dict[str, Scenario],
+        scenario_version: str | None = None,
+    ):
+        if not scenarios:
             raise ValueError("No scenarios were loaded; the objective would divide by zero.")
-
-        self.__compute_continuous_approximation()
+        self.spec = spec
+        self.id_instance = spec.id_instance
+        self.regime = spec.regime
+        self.scenario_version = scenario_version
+        self.scenario_set = spec.scenario_set
+        self.use_euclidean_distance = spec.use_euclidean_distance
+        self.config = ConfigurationInstance(
+            is_continuous_var_x=spec.is_continuous_var_x,
+            type_of_flexibility=spec.type_of_flexibility,
+            N=spec.n_scenarios,
+            regime=spec.regime,
+        )
+        self.periods = spec.periods
+        self.horizon_weight = spec.horizon_weight
+        self.vehicles = vehicles
+        self.facilities = facilities
+        self.scenarios = scenarios
+        self.scenarios_ids: List[str] = list(scenarios)
 
     def __str__(self):
         return (
@@ -100,22 +113,49 @@ class Instance:
             f"-----------------"
         )
 
-    def __read_scenarios(self) -> Dict[str, Scenario]:
-        """Load each requested scenario. Keys are always the string form of the id."""
-        scenarios = {}
-        for id_scenario in self.scenario_ids_requested:
-            pixels = self.layout.load_pixels(str(id_scenario), self.regime, self.scenario_set)
-            scenarios[str(id_scenario)] = Scenario(id_scenario=str(id_scenario), pixels=pixels, periods=self.periods)
-        logger.info(f"Loaded {len(scenarios)} scenarios of regime '{self.regime}'.")
-        return scenarios
 
-    def __compute_continuous_approximation(self) -> None:
-        """Compute the routing cost and fleet size parameters for every scenario."""
-        approximation = ContinuousApproximation(
-            scenarios=self.scenarios,
-            facilities=self.facilities,
-            vehicles=self.vehicles,
-            use_euclidean_distance=self.use_euclidean_distance,
-            periods=self.periods,
+class InstanceBuilder:
+    """Builds instances from the scenario sets of one version.
+
+    `routing` is the routing-cost model: a class taking `(scenarios, facilities, vehicles,
+    use_euclidean_distance, periods)` whose `run_continuous_approximation()` fills each
+    scenario's costs and fleet sizes.
+    """
+
+    def __init__(self, layout: ScenarioLayout, version: str | None = None, routing=ContinuousApproximation):
+        self.layout = layout
+        self.version = version
+        self.routing = routing
+
+    @classmethod
+    def for_version(cls, version: str) -> "InstanceBuilder":
+        return cls(ScenarioLayout.generated(version), version=version)
+
+    def build(self, spec: InstanceSpec) -> Instance:
+        vehicles = get_vehicles()
+        facilities = get_facilities()
+        if spec.facilities_subset is not None:
+            facilities = {k: v for k, v in facilities.items() if k in spec.facilities_subset}
+
+        ids = (
+            list(spec.scenario_ids)
+            if spec.scenario_ids
+            else self.layout.scenario_ids(spec.regime, spec.scenario_set, spec.n_scenarios)
         )
-        self.scenarios = approximation.run_continuous_approximation()
+        scenarios = {}
+        for id_scenario in ids:
+            pixels = self.layout.load_pixels(str(id_scenario), spec.regime, spec.scenario_set)
+            scenarios[str(id_scenario)] = Scenario(id_scenario=str(id_scenario), pixels=pixels, periods=spec.periods)
+        logger.info(f"Loaded {len(scenarios)} scenarios of regime '{spec.regime}'.")
+        if not scenarios:
+            raise ValueError("No scenarios were loaded; the objective would divide by zero.")
+
+        approximation = self.routing(
+            scenarios=scenarios,
+            facilities=facilities,
+            vehicles=vehicles,
+            use_euclidean_distance=spec.use_euclidean_distance,
+            periods=spec.periods,
+        )
+        scenarios = approximation.run_continuous_approximation()
+        return Instance(spec, vehicles, facilities, scenarios, scenario_version=self.version)
