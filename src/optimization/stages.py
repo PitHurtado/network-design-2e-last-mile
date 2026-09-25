@@ -24,7 +24,7 @@ from src.optimization.experiments import validation_benchmark as bench_exp
 from src.optimization.experiments.runner import ExperimentRunner
 from src.optimization.experiments.store import ResultStore
 from src.optimization.instance import InstanceBuilder
-from src.optimization.models.flex import FlexSAAModel
+from src.optimization.models import model_class
 from src.tools.artifacts import Artifact, ArtifactKind, ArtifactStore
 from src.tools.io import read_json, sha256_json
 from src.tools.logging import get_logger
@@ -50,20 +50,24 @@ class RunConfig:
     time_limit: float = 600.0
     mip_gap: float = 0.0
     solver_overrides: dict = field(default_factory=dict)
+    model: str = "flex"
 
 
 def _command(subcommand: str, argv, config: dict) -> dict:
     return {"program": "optimize", "subcommand": subcommand, "argv": list(argv or []), "config": config}
 
 
-def leaf_key(scenarios: dict, experiment: str, solver: dict, flexibility: str, regime: str, case: str | None) -> str:
+def leaf_key(
+    scenarios: dict, experiment: str, solver: dict, flexibility: str, regime: str, case: str | None, model: str = "flex"
+) -> str:
     """Digest of everything that defines one solve."""
+    cls = model_class(model)
     return sha256_json(
         {
             "scenarios": {"id": scenarios["id"], "content_sha256": scenarios["content_sha256"]},
             "experiment": experiment,
-            "model": FlexSAAModel.NAME,
-            "features": FlexSAAModel.DEFAULT_FEATURES.as_dict(),
+            "model": cls.NAME,
+            "features": cls.DEFAULT_FEATURES.as_dict(),
             "solver": solver,
             "flexibility": flexibility,
             "regime": regime,
@@ -87,7 +91,7 @@ class RunStage:
                 found.setdefault(leaf["key"], (artifact, leaf["path"]))
         return found
 
-    def _record(self, artifact: Artifact, experiment: str, scenarios: dict, solver: dict, reused: dict) -> list[dict]:
+    def _record(self, artifact: Artifact, experiment: str, scenarios: dict, solver: dict, reused: dict, model: str) -> list[dict]:
         store = ResultStore(artifact.path / experiment, EXPERIMENTS[experiment])
         leaves = []
         for path in store.iter_leaves(scenarios["id"]):
@@ -98,7 +102,7 @@ class RunStage:
             solve = payload.get("solve") or {}
             leaves.append(
                 {
-                    "key": leaf_key(scenarios, experiment, solver, flexibility, regime, case),
+                    "key": leaf_key(scenarios, experiment, solver, flexibility, regime, case, model),
                     "path": relative,
                     "status": payload.get("status") or solve.get("status"),
                     "is_optimal": solve.get("is_optimal"),
@@ -107,7 +111,9 @@ class RunStage:
             )
         return leaves
 
-    def _save(self, artifact, subcommand, argv, config: dict, parents: list[Artifact], experiment, scenarios, solver, reused):
+    def _save(  # pylint: disable=too-many-arguments
+        self, artifact, subcommand, argv, config: dict, parents: list[Artifact], experiment, scenarios, solver, reused, model
+    ):
         Manifest(
             kind="runs",
             id=artifact.id,
@@ -116,9 +122,10 @@ class RunStage:
             seeds={"solver": {k: solver.get(k) for k in ("Seed", "Threads")}},
             details={
                 "experiment": experiment,
+                "model": model,
                 "scenarios": scenarios["id"],
                 "solver": solver,
-                "leaves": self._record(artifact, experiment, scenarios, solver, reused),
+                "leaves": self._record(artifact, experiment, scenarios, solver, reused, model),
             },
         ).save(artifact)
 
@@ -136,12 +143,12 @@ class RunStage:
         artifact = self.store.new_candidate(self.kind)
         store = ResultStore(artifact.path / "flexibility", flex_exp.RESULT_FILE)
         official, reused = self._official_leaves(), {}
-        for flexibility in config.flexibilities:
+        for flexibility in flex_exp.policies_for(config.model, config.flexibilities):
             for regime in config.regimes:
                 for case in config.cases:
-                    run = flex_exp.ExperimentRun(scenarios_artifact.id, regime, flexibility, case)
+                    run = flex_exp.ExperimentRun(scenarios_artifact.id, regime, flexibility, case, config.model)
                     target = store.leaf_path(run.version, flexibility, regime, case)
-                    key = leaf_key(scenarios, "flexibility", solver, flexibility, regime, case)
+                    key = leaf_key(scenarios, "flexibility", solver, flexibility, regime, case, config.model)
                     if key in official and not overwrite:
                         source, relative = official[key]
                         target.parent.mkdir(parents=True, exist_ok=True)
@@ -156,7 +163,18 @@ class RunStage:
             "flexibilities": list(config.flexibilities),
             "cases": list(config.cases),
         }
-        self._save(artifact, "flexibility", argv, config_dict, [scenarios_artifact], "flexibility", scenarios, solver, reused)
+        self._save(
+            artifact,
+            "flexibility",
+            argv,
+            config_dict,
+            [scenarios_artifact],
+            "flexibility",
+            scenarios,
+            solver,
+            reused,
+            config.model,
+        )
         return artifact
 
     def evaluate(self, source_ref: str, time_limit: float, argv=None, solver_overrides: dict | None = None) -> Artifact:
@@ -174,7 +192,7 @@ class RunStage:
         eval_exp.evaluate_experiment(
             scenarios_artifact.id,
             source_config["regimes"],
-            source_config["flexibilities"],
+            flex_exp.policies_for(source_config.get("model", "flex"), source_config["flexibilities"]),
             [case for case in eval_exp.SOLUTION_CASES if case in source_config["cases"]],
             time_limit,
             source=eval_exp.SourceRun(source.id, source.path),
@@ -183,7 +201,16 @@ class RunStage:
         )
         config = {"run": source.id, "time_limit": time_limit, "solver_overrides": dict(solver_overrides or {})}
         self._save(
-            artifact, "evaluate", argv, config, [scenarios_artifact, source], "flexibility_evaluation", scenarios, solver, {}
+            artifact,
+            "evaluate",
+            argv,
+            config,
+            [scenarios_artifact, source],
+            "flexibility_evaluation",
+            scenarios,
+            solver,
+            {},
+            source_config.get("model", "flex"),
         )
         return artifact
 
@@ -194,7 +221,7 @@ class RunStage:
             InstanceBuilder(ScenarioLayout(scenarios_artifact.path), scenarios_artifact.id), config.solver_overrides
         )
         artifact = self.store.new_candidate(self.kind)
-        for flexibility in config.flexibilities:
+        for flexibility in flex_exp.policies_for(config.model, config.flexibilities):
             for regime in config.regimes:
                 bench_exp.run_validation_benchmark(
                     scenarios_artifact.id,
@@ -204,6 +231,7 @@ class RunStage:
                     overwrite=True,
                     output_root=artifact.path / "flexibility_validation_benchmark",
                     runner=runner,
+                    model=config.model,
                 )
         config_dict = {
             **config.__dict__,
@@ -221,6 +249,7 @@ class RunStage:
             scenarios,
             solver,
             {},
+            config.model,
         )
         return artifact
 

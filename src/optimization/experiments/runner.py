@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.optimization.instance import Instance, InstanceBuilder, InstanceSpec
+from src.optimization.models import FlexSAAModel
 from src.optimization.models.base import BaseSAAModel
-from src.optimization.models.flex import FlexSAAModel
 
 
 @dataclass(frozen=True)

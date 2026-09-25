@@ -17,6 +17,7 @@ import sys
 from src.core.constants import TypeOfFlexibility
 from src.optimization.experiments.flexibility import CASES
 from src.optimization.instance import InstanceBuilder
+from src.optimization.models import MODELS
 from src.optimization.stages import ALL_FLEXIBILITIES, RunConfig, RunStage, RunValidator
 from src.optimization.verify import verify
 from src.tools import cli
@@ -47,6 +48,7 @@ def main(argv: list[str] | None = None) -> None:
     flex.add_argument("--flexibilities", nargs="+", choices=flexibilities, default=list(ALL_FLEXIBILITIES))
     flex.add_argument("--cases", nargs="+", choices=list(CASES), default=list(CASES))
     flex.add_argument("--overwrite", action="store_true", help="solve every leaf even if an official run already has it")
+    flex.add_argument("--model", choices=sorted(MODELS), default="flex", help="model variant (policies apply to flex only)")
     _add_solver(flex)
 
     evaluate = sub.add_parser("evaluate", help="evaluate a flexibility run's Y out of sample")
@@ -57,6 +59,7 @@ def main(argv: list[str] | None = None) -> None:
     bench.add_argument("--scenarios", required=True)
     cli.add_regimes(bench)
     bench.add_argument("--flexibilities", nargs="+", choices=flexibilities, default=list(ALL_FLEXIBILITIES))
+    bench.add_argument("--model", choices=sorted(MODELS), default="flex")
     _add_solver(bench, mip_gap=False)
 
     report = sub.add_parser("report", help="HTML reports of a run")
@@ -88,12 +91,13 @@ def main(argv: list[str] | None = None) -> None:
             args.time_limit,
             args.mip_gap,
             _overrides(args),
+            args.model,
         )
         return announce(stage.flexibility(config, argv, overwrite=args.overwrite))
 
     def benchmark_handler(args) -> int:
         config = RunConfig(
-            args.scenarios, tuple(args.regimes), tuple(args.flexibilities), (), args.time_limit, 0.0, _overrides(args)
+            args.scenarios, tuple(args.regimes), tuple(args.flexibilities), (), args.time_limit, 0.0, _overrides(args), args.model
         )
         return announce(stage.benchmark(config, argv))
 

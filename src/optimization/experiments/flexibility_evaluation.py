@@ -13,6 +13,7 @@ from src.optimization.experiments.flexibility import RESULT_FILE
 from src.optimization.experiments.runner import ExperimentRunner, RunSpec
 from src.optimization.experiments.store import ResultStore
 from src.optimization.instance import InstanceSpec
+from src.optimization.models import model_class
 
 SOLUTION_CASES = ("annual_expected", "expected", "optimization")
 VALIDATION_SCENARIOS = 100
@@ -82,7 +83,8 @@ def evaluate_one(
         raise FileExistsError(f"{output_path} exists; use --overwrite or another version.")
 
     source_path = source.store.leaf_path(version, flexibility, regime, solution_case)
-    fixed_installation = _fixed_installation(source.store.read(source_path))
+    source_payload = source.store.read(source_path)
+    fixed_installation = _fixed_installation(source_payload)
     matching = _matching_evaluation(store, output_path, fixed_installation)
     if matching is not None:
         matching["solution_case"] = solution_case
@@ -103,6 +105,7 @@ def evaluate_one(
                 use_euclidean_distance=True,
             ),
             solver={"TimeLimit": time_limit, "MIPGap": 0.0, "OutputFlag": 0},
+            model=model_class(source_payload["run"].get("model", "flex")),
             model_kwargs={"fixed_installation": fixed_installation},
         )
     )

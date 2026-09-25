@@ -7,6 +7,7 @@ from src.core.constants import RESULTS_DIR, TypeOfFlexibility
 from src.optimization.experiments.runner import ExperimentRunner, RunSpec
 from src.optimization.experiments.store import ResultStore
 from src.optimization.instance import InstanceSpec
+from src.optimization.models import model_class
 
 CASES = {
     "expected": {"scenario_set": "expected", "n_scenarios": 1, "periods": 12},
@@ -14,6 +15,12 @@ CASES = {
     "annual_expected": {"scenario_set": "annual_expected", "n_scenarios": 1, "periods": 1},
 }
 RESULT_FILE = "result.json"
+NO_POLICY = "none"
+
+
+def policies_for(model: str, flexibilities) -> tuple[str, ...]:
+    """The policies to sweep: the requested ones, or just "none" for a model without a policy."""
+    return tuple(flexibilities) if model_class(model).USES_POLICY else (NO_POLICY,)
 
 
 @dataclass(frozen=True)
@@ -22,8 +29,9 @@ class ExperimentRun:
 
     version: str
     regime: str
-    flexibility: str
+    flexibility: str  # an operating policy, or "none" for a model without one
     case: str
+    model: str = "flex"
 
     def run_spec(self, time_limit: float, mip_gap: float) -> RunSpec:
         case = CASES[self.case]
@@ -39,11 +47,18 @@ class ExperimentRun:
                 use_euclidean_distance=True,
             ),
             solver={"TimeLimit": time_limit, "MIPGap": mip_gap, "OutputFlag": 0},
+            model=model_class(self.model),
         )
 
 
 def _value(expression) -> float | None:
     return round(expression.getValue(), 3) if expression is not None else None
+
+
+def _scaled(expression, scale: float) -> float | None:
+    """A scenario-dependent component on the objective's scale; None if the model has no such term."""
+    value = _value(expression)
+    return None if value is None else value * scale
 
 
 def run_one(
@@ -70,9 +85,9 @@ def run_one(
             "costs": {
                 "installation": _value(model.obj.cost_installation),
                 # Same scaling as the objective: horizon_weight / N (12 for annual_expected).
-                "operation_expected": _value(model.obj.cost_operation) * scale,
-                "routing_facilities_expected": _value(model.obj.cost_served_from_facilities) * scale,
-                "routing_dc_expected": _value(model.obj.cost_served_from_dc) * scale,
+                "operation_expected": _scaled(model.obj.cost_operation, scale),
+                "routing_facilities_expected": _scaled(model.obj.cost_served_from_facilities, scale),
+                "routing_dc_expected": _scaled(model.obj.cost_served_from_dc, scale),
             },
             "decisions": model.decisions() if solve["objective_value"] is not None else None,
         }
@@ -92,18 +107,20 @@ def run_experiment(
     overwrite: bool = False,
     output_root: Path | None = None,
     runner: ExperimentRunner | None = None,
+    model: str = "flex",
 ) -> list[dict]:
     """Run the Cartesian product in a stable order and return persisted payloads."""
     store = ResultStore(output_root or (RESULTS_DIR / "flexibility"), RESULT_FILE)
     runner = runner or ExperimentRunner.for_version(version)
-    invalid = set(flexibilities) - {item.value for item in TypeOfFlexibility}
+    flexibilities = policies_for(model, flexibilities)
+    invalid = set(flexibilities) - {item.value for item in TypeOfFlexibility} - {NO_POLICY}
     if invalid:
         raise ValueError(f"Unknown flexibility configuration(s): {sorted(invalid)}")
     invalid = set(cases) - set(CASES)
     if invalid:
         raise ValueError(f"Unknown experiment case(s): {sorted(invalid)}")
     return [
-        run_one(ExperimentRun(version, regime, flexibility, case), store, runner, time_limit, mip_gap, overwrite)
+        run_one(ExperimentRun(version, regime, flexibility, case, model), store, runner, time_limit, mip_gap, overwrite)
         for flexibility in flexibilities
         for regime in regimes
         for case in cases

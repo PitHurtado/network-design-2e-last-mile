@@ -39,9 +39,10 @@ tools ← core ← { scenarios , optimization ← calibration }      visualizati
 `scenarios` and `optimization` never import each other; they meet on disk through
 `core/contract.py`. `tests/test_architecture.py` enforces the whole graph.
 
-Still only in `OLD/src/`: the capacitated model (Y-based capacity, no Z), the powerset
-and best-per-size drivers, `visualization/` solution maps, `analysis/ca_factor_analysis.py`.
-`flex.py` already covers `OLD`'s capacitated-flex and extended models.
+Still only in `OLD/src/`: the powerset and best-per-size drivers, `visualization/`
+solution maps, `analysis/ca_factor_analysis.py`. `capacitated.py` and `flex.py` cover
+`OLD`'s capacitated, capacitated-flex and extended models (levels and costs now come from
+`input_facilities.xlsx`, not `OLD`'s hard-coded Proposal-A tables).
 
 **`OLD/` is gitignored and untracked** — it exists only on this machine (plus an
 `OLD.zip` beside it) and cannot be recovered from git. It is the reference
@@ -76,7 +77,7 @@ scenarios validate <ref> | promote <ref> | list | show <ref>
 ### Optimization
 
 ```bash
-optimize flexibility --scenarios v1 [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
+optimize flexibility --scenarios v1 [--model flex|capacitated|uncapacitated] [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
 optimize evaluate --run r1            # fixed-Y recourse on validation
 optimize benchmark --scenarios v1     # RP_100 for the theoretical VSS
 optimize report <run> [--benchmark <run>]
@@ -156,13 +157,22 @@ shifts every downstream number.
 (`first_echelon_truck`), satellites serve pixels with small vehicles (`van`). Nine
 candidate satellites, 161 pixels, 12 periods, La Paz.
 
-**Model family:** `optimization/models/base.py` owns the shared formulation plus a
-registry of optional blocks, each with a flag. A variant is a thin subclass that sets
-`DEFAULT_FEATURES` and implements the blocks it enables; it never restates the base.
-Each objective block declares whether it is averaged by `1/N` (installation is not), and
-`solve()` records `Status` and `is_optimal` next to the objective. Ablation is
-`disabled_blocks`; unknown names raise. When porting a model from `OLD/`, implement its
-blocks — do not copy the build/solve scaffolding.
+**Model family:** `UncapacitatedSAAModel ⊂ CapacitatedSAAModel ⊂ FlexSAAModel`, each a
+subclass of the previous that only *adds* blocks (base + toggleable blocks + preset
+subclasses, decided 2026-09-09). A variant declares `NAME` (registers it in `MODELS`,
+selectable with `--model`), a `Features` dataclass extending its parent's, and `BLOCKS`:
+only the blocks it introduces; `__init_subclass__` builds `CATALOGUE`, and `before=`
+pins a block's position because **the variable/constraint order Gurobi sees changes
+results under a work or time limit** (`tests/test_models.py` pins flex's order). To
+change a block's formulation, override its method (flex overrides `_installed_capacity`
+to put the capacity on Z); redeclaring a block raises. Operating policies are
+`OperationPolicy` subclasses (`policies.py`), registered by name. Averaged objective
+blocks return `{scenario: expr}`, so the objective, `scenario_costs()` and `decisions()`
+all read the same expressions. Fixing Y for an evaluation is its own block
+(`fix_installation`, enabled by `fixed_installation=`). Ablation is `disabled_blocks`
+(names are unique; the objective block is `operation_cost`, the variables `operation`);
+unknown names raise. When porting a model from `OLD/`, implement its blocks — do not copy
+the build/solve scaffolding.
 
 **Scenario generation:** `ScenarioGenerator.draw` multiplies expected demand by the
 shocks of a `DependenceStrategy` (`SpatialJoint`, `Independent`, `HistoricalBootstrap`,

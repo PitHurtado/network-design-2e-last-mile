@@ -6,6 +6,7 @@ from src.core.constants import RESULTS_DIR
 from src.optimization.experiments.runner import ExperimentRunner, RunSpec
 from src.optimization.experiments.store import ResultStore
 from src.optimization.instance import InstanceSpec
+from src.optimization.models import model_class
 
 VALIDATION_SCENARIOS = 100
 BENCHMARK_FILE = "rp_validation.json"
@@ -19,6 +20,7 @@ def run_validation_benchmark(
     overwrite: bool = False,
     output_root: Path | None = None,
     runner: ExperimentRunner | None = None,
+    model: str = "flex",
 ) -> dict:
     """Persist an RP_100 benchmark; a time limit preserves incumbent and bound."""
     store = ResultStore(output_root or (RESULTS_DIR / "flexibility_validation_benchmark"), BENCHMARK_FILE)
@@ -39,6 +41,7 @@ def run_validation_benchmark(
                 use_euclidean_distance=True,
             ),
             solver={"TimeLimit": time_limit, "MIPGap": 0.0, "OutputFlag": 0},
+            model=model_class(model),
         )
     )
     solve = solved.solve
@@ -46,6 +49,7 @@ def run_validation_benchmark(
         "version": version,
         "regime": regime,
         "flexibility": flexibility,
+        "model": model,
         "scenario_set": "validation",
         "n_scenarios": VALIDATION_SCENARIOS,
         "assignment_variables": "binary",

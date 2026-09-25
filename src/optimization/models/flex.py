@@ -1,12 +1,25 @@
-"""Capacitated SAA model with three post-installation flexibility policies."""
+"""Flexible capacitated SAA model: operate the installed capacity under an explicit policy.
+
+Adds to the capacitated model the operated level `Z[i,q,t,n]`, chosen per period and
+scenario, its operating cost, and an `OperationPolicy` linking Z to the installed Y
+(`policies.py`: fixed, on/off, up to installed). The capacity is then written over Z.
+"""
+
+from dataclasses import dataclass
 
 from gurobipy import GRB, quicksum  # pylint: disable=E0611
 
-from src.core.constants import TypeOfFlexibility
-from src.optimization.models.base import BaseSAAModel, ModelFeatures
+from src.optimization.models.base import Block
+from src.optimization.models.capacitated import CapacitatedFeatures, CapacitatedSAAModel
+from src.optimization.models.policies import OperationPolicy, policy_for
 
 
-class FlexSAAModel(BaseSAAModel):
+@dataclass(frozen=True)
+class FlexFeatures(CapacitatedFeatures):
+    flex_operation: bool = True
+
+
+class FlexSAAModel(CapacitatedSAAModel):
     """Choose one installed capacity and operate it under an explicit flexibility policy.
 
     Installation ``Y[i,q]`` is here-and-now. Operational capacity ``Z[i,q,t,n]`` is
@@ -15,39 +28,36 @@ class FlexSAAModel(BaseSAAModel):
     """
 
     NAME = "flex"
-    DEFAULT_FEATURES = ModelFeatures(install_levels=True, flex_operation=True, capacity=True)
+    USES_POLICY = True
+    Features = FlexFeatures
+    DEFAULT_FEATURES = FlexFeatures()
+    BLOCKS = (
+        Block("operation", "var", "_vars_operation", flag="flex_operation", solution=("operation", "_solution_operation")),
+        Block(
+            "operation_cost",
+            "obj",
+            "_obj_operation",
+            flag="flex_operation",
+            averaged=True,
+            field="cost_operation",
+            cost_key="operation_cost",
+        ),
+        Block("one_operation_level", "constr", "_constr_one_operation_level", flag="flex_operation", before="capacity"),
+        Block("operation_le_install", "constr", "_constr_operation_le_install", flag="flex_operation", before="capacity"),
+    )
 
-    def __init__(self, instance, features=None, fixed_installation: dict[str, float] | None = None):
-        self.flexibility = TypeOfFlexibility(instance.config.type_of_flexibility)
+    def __init__(self, instance, features=None, fixed_installation=None, policy: OperationPolicy | None = None):
+        self.policy = policy or policy_for(instance.config.type_of_flexibility)
         if instance.config.is_continuous_var_x:
             raise ValueError("FlexSAAModel requires binary assignment variables X and W; set is_continuous_var_x=False.")
-        super().__init__(instance, features)
-        self.levels = {
-            facility_id: {int(level): float(capacity) for level, capacity in facility.capacity.items()}
-            for facility_id, facility in self.instance.facilities.items()
-        }
-        self.fixed_installation = self._validate_fixed_installation(fixed_installation)
+        super().__init__(instance, features, fixed_installation)
 
-    def _validate_fixed_installation(self, fixed_installation: dict[str, float] | None) -> dict[str, int] | None:
-        """Map persisted capacities to their exact level, rejecting incompatible Y values."""
-        if fixed_installation is None:
-            return None
-        if set(fixed_installation) != set(self.levels):
-            raise ValueError("fixed_installation must contain exactly the facilities in the evaluation instance.")
-        selected = {}
-        for facility_id, capacity in fixed_installation.items():
-            matches = [level for level, value in self.levels[facility_id].items() if abs(value - float(capacity)) < 1e-9]
-            if len(matches) != 1:
-                raise ValueError(f"Capacity {capacity} for facility {facility_id} is not an available installation level.")
-            selected[facility_id] = matches[0]
-        return selected
-
-    def _vars_install(self) -> None:
-        self.vars.Y = {
-            (facility_id, level): self.model.addVar(vtype=GRB.BINARY, name=f"Y_i{facility_id}_q{level}")
-            for facility_id, levels in self.levels.items()
-            for level in levels
-        }
+    def _validate_features(self) -> None:
+        super()._validate_features()
+        if self.features.flex_operation and not self.features.install_levels:
+            raise ValueError("flex_operation=True requires install_levels=True: Z is bounded by the installed level Y.")
+        if self.features.capacity and not self.features.flex_operation:
+            raise ValueError("FlexSAAModel writes capacity over Z; without flex_operation use CapacitatedSAAModel.")
 
     def _vars_operation(self) -> None:
         self.vars.Z = {
@@ -60,41 +70,21 @@ class FlexSAAModel(BaseSAAModel):
             for scenario_id in self.instance.scenarios
         }
 
-    def _obj_installation(self):
-        return quicksum(
-            float(self.instance.facilities[facility_id].cost_installation[str(level)]) * self.vars.Y[(facility_id, level)]
-            for facility_id, levels in self.levels.items()
-            for level, capacity in levels.items()
-            if capacity > 0
-        )
-
     def _operating_cost(self, facility_id: str, level: int, period: int) -> float:
         values = self.instance.facilities[facility_id].cost_operation[str(level)]
         return float(sum(values) / len(values)) if self.instance.periods == 1 else float(values[period])
 
-    def _obj_operation(self):
-        return quicksum(
-            self._operating_cost(facility_id, level, period) * self.vars.Z[(facility_id, level, period, scenario_id)]
-            for facility_id, levels in self.levels.items()
-            for level, capacity in levels.items()
-            if capacity > 0
-            for period in range(self.instance.periods)
-            for scenario_id in self.instance.scenarios
-        )
-
-    def _constr_one_install_level(self) -> None:
-        for facility_id, levels in self.levels.items():
-            self.model.addConstr(
-                quicksum(self.vars.Y[(facility_id, level)] for level in levels) == 1,
-                name=f"R_install_{facility_id}",
+    def _obj_operation(self) -> dict:
+        return {
+            scenario_id: quicksum(
+                self._operating_cost(facility_id, level, period) * self.vars.Z[(facility_id, level, period, scenario_id)]
+                for facility_id, levels in self.levels.items()
+                for level, capacity in levels.items()
+                if capacity > 0
+                for period in range(self.instance.periods)
             )
-            if self.fixed_installation is not None:
-                selected = self.fixed_installation[facility_id]
-                for level in levels:
-                    self.model.addConstr(
-                        self.vars.Y[(facility_id, level)] == int(level == selected),
-                        name=f"R_fixed_install_{facility_id}_q{level}",
-                    )
+            for scenario_id in self.instance.scenarios
+        }
 
     def _constr_one_operation_level(self) -> None:
         for facility_id, levels in self.levels.items():
@@ -109,54 +99,17 @@ class FlexSAAModel(BaseSAAModel):
         for facility_id, levels in self.levels.items():
             for scenario_id in self.instance.scenarios:
                 for period in range(self.instance.periods):
-                    if self.flexibility is TypeOfFlexibility.FIXED_OPERATION:
-                        for level in levels:
-                            self.model.addConstr(
-                                self.vars.Z[(facility_id, level, period, scenario_id)] == self.vars.Y[(facility_id, level)],
-                                name=f"R_fixed_{facility_id}_q{level}_t{period}_n{scenario_id}",
-                            )
-                    elif self.flexibility is TypeOfFlexibility.ON_OFF_INSTALLED:
-                        for level, capacity in levels.items():
-                            if capacity > 0:
-                                self.model.addConstr(
-                                    self.vars.Z[(facility_id, level, period, scenario_id)] <= self.vars.Y[(facility_id, level)],
-                                    name=f"R_onoff_{facility_id}_q{level}_t{period}_n{scenario_id}",
-                                )
-                    else:
-                        for installed_level, installed_capacity in levels.items():
-                            higher = [level for level, capacity in levels.items() if capacity > installed_capacity]
-                            if higher:
-                                self.model.addConstr(
-                                    quicksum(self.vars.Z[(facility_id, level, period, scenario_id)] for level in higher)
-                                    <= 1 - self.vars.Y[(facility_id, installed_level)],
-                                    name=f"R_upto_{facility_id}_q{installed_level}_t{period}_n{scenario_id}",
-                                )
+                    self.policy.link(self, facility_id, levels, period, scenario_id)
 
-    def _constr_capacity(self) -> None:
-        for scenario_id, scenario in self.instance.scenarios.items():
-            fleet = scenario.get_fleet_size("facility")
-            for facility_id in self.instance.facilities:
-                for period in range(self.instance.periods):
-                    self.model.addConstr(
-                        quicksum(
-                            self.vars.X[(facility_id, pixel_id, period, scenario_id)]
-                            * round(fleet[(facility_id, pixel_id, "small", period, scenario_id)], 1)
-                            for pixel_id in scenario.pixels
-                        )
-                        <= quicksum(
-                            capacity * self.vars.Z[(facility_id, level, period, scenario_id)]
-                            for level, capacity in self.levels[facility_id].items()
-                        ),
-                        name=f"R_capacity_{facility_id}_t{period}_n{scenario_id}",
-                    )
+    def _installed_capacity(self, facility_id: str, period: int, scenario_id: str):
+        """The operated level, not the installed one, bounds the fleet."""
+        return quicksum(
+            capacity * self.vars.Z[(facility_id, level, period, scenario_id)]
+            for level, capacity in self.levels[facility_id].items()
+        )
 
-    def decisions(self) -> dict:
-        """Serializable installation and recourse decisions after a feasible solve."""
-        installation = []
-        for facility_id, levels in self.levels.items():
-            selected = next(level for level in levels if self.vars.Y[(facility_id, level)].X > 0.5)
-            installation.append({"facility": facility_id, "installed": levels[selected] > 0, "capacity": levels[selected]})
-        operation = [
+    def _solution_operation(self) -> list[dict]:
+        return [
             {"facility": facility_id, "capacity": capacity, "period": period, "scenario": scenario_id}
             for facility_id, levels in self.levels.items()
             for scenario_id in self.instance.scenarios
@@ -164,52 +117,3 @@ class FlexSAAModel(BaseSAAModel):
             for level, capacity in levels.items()
             if self.vars.Z[(facility_id, level, period, scenario_id)].X > 0.5
         ]
-        return {"installation": installation, "operation": operation}
-
-    def scenario_costs(self) -> list[dict]:
-        """Return unaveraged second-stage costs for every scenario in a solved evaluation.
-
-        Installation is deliberately excluded: it is a first-stage, one-time cost and
-        is reported separately so a distribution never counts it 100 times by mistake.
-        Second-stage terms use exactly the objective's coefficients, including the
-        `horizon_weight` that scales a one-period annual instance back to 12 periods, so
-        `installation + mean(second_stage)` reproduces the objective.
-        """
-        installation = self._obj_installation().getValue()
-        weight = self.instance.horizon_weight
-        rows = []
-        for scenario_id, scenario in self.instance.scenarios.items():
-            operation = quicksum(
-                self._operating_cost(facility_id, level, period) * self.vars.Z[(facility_id, level, period, scenario_id)]
-                for facility_id, levels in self.levels.items()
-                for level, capacity in levels.items()
-                if capacity > 0
-                for period in range(self.instance.periods)
-            ).getValue()
-            routing_facilities = quicksum(
-                round(scenario.get_cost_serving("facility")[(facility_id, pixel_id, "small", period, scenario_id)], 5)
-                * self.vars.X[(facility_id, pixel_id, period, scenario_id)]
-                for facility_id in self.instance.facilities
-                for pixel_id in scenario.pixels
-                for period in range(self.instance.periods)
-            ).getValue()
-            routing_dc = quicksum(
-                round(scenario.get_cost_serving("dc")[(pixel_id, "large", period, scenario_id)], 5)
-                * self.vars.W[(pixel_id, period, scenario_id)]
-                for pixel_id in scenario.pixels
-                for period in range(self.instance.periods)
-            ).getValue()
-            operation, routing_facilities, routing_dc = (weight * operation, weight * routing_facilities, weight * routing_dc)
-            second_stage = operation + routing_facilities + routing_dc
-            rows.append(
-                {
-                    "scenario_id": scenario_id,
-                    "installation_cost": round(installation, 3),
-                    "operation_cost": round(operation, 3),
-                    "routing_facilities_cost": round(routing_facilities, 3),
-                    "routing_dc_cost": round(routing_dc, 3),
-                    "second_stage_cost": round(second_stage, 3),
-                    "total_cost": round(installation + second_stage, 3),
-                }
-            )
-        return rows

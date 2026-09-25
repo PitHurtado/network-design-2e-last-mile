@@ -208,12 +208,21 @@ optimizador.
 
 ## Modelo
 
-La formulación comparte una base y activa bloques por variante:
+Las variantes anidan (`Uncapacitated ⊂ Capacitated ⊂ Flex`) y cada una es una subclase
+de la anterior que sólo agrega bloques de variables, objetivo y restricciones:
 
-| Modelo | Archivo | Característica |
+| Modelo (`--model`) | Archivo | Agrega |
 |---|---|---|
-| Sin capacidad | `src/optimization/models/uncapacitated.py` | Asignación y costo de ruteo. |
-| Flexible | `src/optimization/models/flex.py` | Instalación `Y`, operación `Z`, costos y restricciones de capacidad. |
+| `uncapacitated` | `src/optimization/models/uncapacitated.py` | Asignación `X`, `W` y costos de ruteo (la base). |
+| `capacitated` | `src/optimization/models/capacitated.py` | Instalación `Y[i,q]`, su costo, un nivel por satélite, capacidad sobre `Y`. |
+| `flex` | `src/optimization/models/flex.py` | Operación `Z[i,q,t,n]`, su costo, una política `Z`~`Y`, capacidad sobre `Z`. |
+
+Las políticas de `flex` son clases en `src/optimization/models/policies.py`. Para una
+variante nueva: subclase de la más cercana, `NAME` (queda registrada y seleccionable con
+`--model`), un dataclass `Features` con sus flags, `BLOCKS` con los bloques que introduce
+(`before=` fija su posición) y los métodos de esos bloques; para cambiar la formulación
+de un bloque existente se sobrescribe su método. Ablaciones sin clase nueva:
+`features=replace(Modelo.DEFAULT_FEATURES, disabled_blocks=frozenset({"capacity"}))`.
 
 La función objetivo minimiza instalación más el costo esperado de operación y ruteo.
 En cada período y escenario, cada píxel se atiende exactamente desde un satélite o

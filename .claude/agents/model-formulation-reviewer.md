@@ -20,11 +20,11 @@ subclass that restates a base block is itself a finding.
 
 - `base.py` — `X[i,k,t,n]`, `W[k,t,n]`, both routing terms, demand constraint, solve
 - `uncapacitated.py` — the base with every optional block off
-- `flex.py` — installation `Y[i,q]`, operation `Z[i,q,t,n]`, capacity, and the three
-  post-installation policies (`fixed_operation`, `on_off_installed`, `up_to_installed`);
-  it covers `OLD/src/models/{capacitated_flex_model,extended_saa_model}.py`
-- `capacitated` — `Y[i,q]` with capacity on Y and no Z: still only in
-  `OLD/src/models/capacitated_saa_model.py`
+- `capacitated.py` — installation `Y[i,q]`, one-time cost, one level, capacity on Y,
+  `fix_installation` for evaluations (port of `OLD/src/models/capacitated_saa_model.py`)
+- `flex.py` — subclass of capacitated: operation `Z[i,q,t,n]`, operating cost, an
+  `OperationPolicy` from `policies.py`, capacity on Z (`_installed_capacity` override);
+  covers `OLD/src/models/{capacitated_flex_model,extended_saa_model}.py
 
 Models are built through `src/optimization/instance.py` (`InstanceSpec` +
 `InstanceBuilder`) and solved through `src/optimization/experiments/runner.py`.
