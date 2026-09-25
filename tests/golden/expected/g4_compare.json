@@ -1,0 +1,75 @@
+{
+  "files": {
+    "normal/historical_bootstrap/validation/scenario_vG-normal-validation-001.json": "64982f901412b06863ba81ef46e18d3ee9d1f5abc99940ea3f622c7560c3a421",
+    "normal/historical_bootstrap/validation/scenario_vG-normal-validation-002.json": "a6597c342420bafed910d17e67127eb6279fbd016a7bc17f82bd81086f6986af",
+    "normal/historical_bootstrap/validation/scenario_vG-normal-validation-003.json": "983aa28851897a85803ce63d42841a13c927abd9fcec8ba45ff8fb9f4b0ceaaf",
+    "normal/independent/validation/scenario_vG-normal-validation-001.json": "54f1f1e20400e280499330a5be4f68a4ca31789d4ac9491c47fcc6c2f9099db2",
+    "normal/independent/validation/scenario_vG-normal-validation-002.json": "8b797b4069570f1ff3883e06667adb421dd4ac839be8dbf77306eadf247a376e",
+    "normal/independent/validation/scenario_vG-normal-validation-003.json": "ec6fc60361573528da51e48b92679003b15c2dd485eec8d18712f09a9f006bf1",
+    "normal/spatial_joint/validation/scenario_vG-normal-validation-001.json": "0ecfc0fd84add241b875d237cef3b1556b370e588728326a921b97b973d2632e",
+    "normal/spatial_joint/validation/scenario_vG-normal-validation-002.json": "fdca21cf120d74220c2b41110c54891c200593cb1ae2b8d954c199df14190fb7",
+    "normal/spatial_joint/validation/scenario_vG-normal-validation-003.json": "a4f97dccc849585f9265f0069e16490f9ff72334d74ed212a041687b91e16ce4"
+  },
+  "manifests": {
+    "normal/historical_bootstrap/validation/manifest.json": {
+      "method": "historical_bootstrap",
+      "multiplier": 0.7118839957589982,
+      "n_scenarios": 3,
+      "period_total_mean": 32489.28971905985,
+      "period_total_p10": 30991.80912880441,
+      "period_total_p90": 33584.507201613254,
+      "periods": 12,
+      "pixels": 161,
+      "scenario_ids": [
+        "normal-validation-001",
+        "normal-validation-002",
+        "normal-validation-003"
+      ],
+      "scenario_set": "validation",
+      "seed_base": 20260908,
+      "stop_cells_drawn": 5796,
+      "stop_floor_hits": 44,
+      "stop_floor_share": 0.00759144237405107
+    },
+    "normal/independent/validation/manifest.json": {
+      "method": "independent",
+      "multiplier": 0.7118839957589982,
+      "n_scenarios": 3,
+      "period_total_mean": 32640.609604414178,
+      "period_total_p10": 32533.04989809284,
+      "period_total_p90": 32786.69550243695,
+      "periods": 12,
+      "pixels": 161,
+      "scenario_ids": [
+        "normal-validation-001",
+        "normal-validation-002",
+        "normal-validation-003"
+      ],
+      "scenario_set": "validation",
+      "seed_base": 20260908,
+      "stop_cells_drawn": 5796,
+      "stop_floor_hits": 0,
+      "stop_floor_share": 0.0
+    },
+    "normal/spatial_joint/validation/manifest.json": {
+      "method": "spatial_joint",
+      "multiplier": 0.7118839957589982,
+      "n_scenarios": 3,
+      "period_total_mean": 33650.43336267713,
+      "period_total_p10": 32566.761084543963,
+      "period_total_p90": 34531.05518834869,
+      "periods": 12,
+      "pixels": 161,
+      "scenario_ids": [
+        "normal-validation-001",
+        "normal-validation-002",
+        "normal-validation-003"
+      ],
+      "scenario_set": "validation",
+      "seed_base": 20260908,
+      "stop_cells_drawn": 5796,
+      "stop_floor_hits": 0,
+      "stop_floor_share": 0.0
+    }
+  }
+}

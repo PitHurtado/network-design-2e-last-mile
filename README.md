@@ -122,6 +122,27 @@ poetry run python -m src.pipeline.cli.analyze --version v4
 poetry run python -m src.pipeline.cli.explore --version v4
 ```
 
+Para comparar el baseline independiente con los dos enfoques conjuntos, usando las
+mismas marginales y 100 escenarios por método:
+
+```bash
+poetry run python -m src.pipeline.cli.compare --regime normal --version v4 --n 100
+open results/comparison/v4/normal/demand_comparison.html
+```
+
+El comando compara `independent` (baseline: muestreo independiente),
+`spatial_joint` (enfoque paramétrico: cópula espacial calibrada) y
+`historical_bootstrap` (enfoque empírico: remuestreo de vectores históricos conjuntos por mes). Escribe
+`comparison_long.csv`, `metrics.csv`, `pixel_period_metrics.csv`,
+`neighbor_metrics.csv`, `distance_metrics.csv` y `summary.json`. Los reportes incluyen
+mapas de demanda y CV con selector de período, mapas de diferencia contra el baseline,
+correlación por anillo y correlograma por distancia. Para los tres regímenes se puede
+usar `--all`.
+
+El baseline `independent` no comparte ningún shock entre píxeles; la varianza del
+shock común histórico se incorpora a la dispersión individual para mantener comparables
+las marginales.
+
 Para revisar el panel sin sobrescribir `data/scenarios/panel_monthly.csv`:
 
 ```bash

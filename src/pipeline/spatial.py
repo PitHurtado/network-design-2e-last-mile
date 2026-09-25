@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import least_squares
 
-from src.core.constants import GRID_DLAT, GRID_DLON, GRID_LAT0, GRID_LON0, GRID_N_COLS
+from src.core.constants import GRID_DLAT, GRID_DLON, GRID_LAT0, GRID_LON0, GRID_N_COLS, GRID_N_ROWS
 from src.core.logging import get_logger
 from src.pipeline.crosswalk import build_footprints, load_manual_crosswalk
 
@@ -60,6 +60,85 @@ def pixel_centroids(crosswalk: pd.DataFrame | None = None) -> pd.DataFrame:
     out = pd.DataFrame(rows).sort_values("id_pixel").reset_index(drop=True)
     logger.info(f"Centroids for {len(out)} pixels; footprint sizes {out['n_cells'].min()}-{out['n_cells'].max()} cells.")
     return out
+
+
+def pixel_grid_cells(crosswalk: pd.DataFrame | None = None) -> dict[str, set[int]]:
+    """Return the actual grid-cell footprint for each model pixel."""
+    crosswalk = load_manual_crosswalk() if crosswalk is None else crosswalk
+    footprint, _ = build_footprints(crosswalk)
+    return {f"{layer}-{int(pixel)}": set(cells) for (layer, pixel), cells in footprint.items()}
+
+
+def pixel_neighbor_pairs(
+    pixels: list[str] | None = None,
+    crosswalk: pd.DataFrame | None = None,
+    ring: int = 1,
+) -> pd.DataFrame:
+    """Return pixel pairs whose grid footprints are within a given edge ring.
+
+    A first-ring neighbor shares a grid-cell edge with another pixel footprint.
+    The second ring is the graph distance-two neighborhood.  The construction uses
+    the regular grid rather than centroid distance, so merged rectangular pixels and
+    cross-layer pixels are handled consistently with the input geometry.
+    """
+    if ring < 1:
+        raise ValueError("ring must be >= 1")
+    crosswalk = load_manual_crosswalk() if crosswalk is None else crosswalk
+    footprint, _ = build_footprints(crosswalk)
+    allowed = set(pixels) if pixels is not None else {f"{layer}-{int(pixel)}" for layer, pixel in footprint}
+    cell_owners: dict[int, set[str]] = {}
+    for (layer, pixel), cells in footprint.items():
+        id_pixel = f"{layer}-{int(pixel)}"
+        if id_pixel not in allowed:
+            continue
+        for cell in cells:
+            cell_owners.setdefault(int(cell), set()).add(id_pixel)
+
+    adjacency: dict[str, set[str]] = {id_pixel: set() for id_pixel in allowed}
+    for id_pixel in allowed:
+        # The grid is row-major: +/-1 is horizontal except at row boundaries;
+        # +/- GRID_N_COLS is vertical.
+        cells = next(
+            (cells for (layer, pixel), cells in footprint.items() if f"{layer}-{int(pixel)}" == id_pixel),
+            set(),
+        )
+        for cell in cells:
+            row, col = divmod(int(cell), GRID_N_COLS)
+            neighbors = []
+            if col > 0:
+                neighbors.append(cell - 1)
+            if col < GRID_N_COLS - 1:
+                neighbors.append(cell + 1)
+            if row > 0:
+                neighbors.append(cell - GRID_N_COLS)
+            if row < GRID_N_ROWS - 1:
+                neighbors.append(cell + GRID_N_COLS)
+            for other_cell in neighbors:
+                for other in cell_owners.get(int(other_cell), set()):
+                    if other != id_pixel:
+                        adjacency[id_pixel].add(other)
+
+    edges = set()
+    for source, neighbors in adjacency.items():
+        for target in neighbors:
+            edges.add(tuple(sorted((source, target))))
+
+    if ring == 2:
+        first_ring = {pair for pair in edges}
+        second_edges = set(first_ring)
+        for source in allowed:
+            reached = set(adjacency[source])
+            for neighbor in list(reached):
+                reached.update(adjacency.get(neighbor, set()))
+            for target in reached:
+                if target != source:
+                    pair = tuple(sorted((source, target)))
+                    if pair not in first_ring:
+                        second_edges.add(pair)
+        edges = second_edges
+
+    rows = [{"id_pixel": left, "neighbor": right, "ring": ring} for left, right in sorted(edges)]
+    return pd.DataFrame(rows, columns=["id_pixel", "neighbor", "ring"])
 
 
 def haversine_matrix(lon: np.ndarray, lat: np.ndarray) -> np.ndarray:

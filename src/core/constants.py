@@ -27,6 +27,7 @@ PATH_SHAPE_PARAMS = PATH_ROOT_SCENARIO / "shape_params.json"
 # readable and avoids pulling in a parquet engine.
 PATH_PANEL_MONTHLY = PATH_ROOT_SCENARIO / "panel_monthly.csv"
 PATH_GENERATED_SCENARIOS = PATH_ROOT_SCENARIO / "generated"
+PATH_COMPARISON_SCENARIOS = PATH_ROOT_SCENARIO / "comparison"
 DEFAULT_SCENARIO_VERSION = "v3"
 SCENARIO_SETS = ("optimization", "validation", "expected", "annual_expected")
 
@@ -40,6 +41,25 @@ def scenario_dir(
     if scenario_set not in SCENARIO_SETS:
         raise ValueError(f"Unknown scenario set {scenario_set!r}; expected one of {SCENARIO_SETS}.")
     return PATH_GENERATED_SCENARIOS / version / regime / scenario_set
+
+
+def comparison_dir(
+    version: str = DEFAULT_SCENARIO_VERSION,
+    regime: str = "normal",
+    method: str = "spatial_joint",
+    scenario_set: str = "validation",
+) -> Path:
+    """Directory for paired demand-generation comparisons.
+
+    Comparison artifacts are deliberately separate from the scenario contract used
+    by the optimizer.  This lets us evaluate an alternative dependence model without
+    replacing an already published scenario version.
+    """
+    if scenario_set not in {"validation", "optimization"}:
+        raise ValueError("Comparison scenarios support validation or optimization sets only.")
+    if method not in {"independent", "spatial_joint", "historical_bootstrap"}:
+        raise ValueError("Unknown comparison method; expected independent, spatial_joint or historical_bootstrap.")
+    return PATH_COMPARISON_SCENARIOS / version / regime / method / scenario_set
 
 
 # ── Pixel grid geometry ───────────────────────────────────────────────────────

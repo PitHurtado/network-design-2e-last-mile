@@ -1,0 +1,29 @@
+{
+  "base_period_demand": 45910.02666694756,
+  "calibrated_n_scenarios": 5,
+  "regimes": {
+    "high": {
+      "multiplier": 1.0757261677235646,
+      "realized_period_demand": 48319.43171650776,
+      "target_period_demand": 48320.0
+    },
+    "low": {
+      "multiplier": 0.4555325376668714,
+      "realized_period_demand": 20465.374331738436,
+      "target_period_demand": 20465.0
+    },
+    "normal": {
+      "multiplier": 0.7275541911125326,
+      "realized_period_demand": 32678.05495371433,
+      "target_period_demand": 32678.0
+    }
+  },
+  "sha": "c71dc0f1c954fc2247dc6e91f1e06b1d61efe4ef9f96f4c4c06df3a1e4dfa28e",
+  "spatial": {
+    "model": "exponential+plateau",
+    "nugget": 1.3600488056768224e-14,
+    "plateau": 0.027398020281912974,
+    "rho_km": 0.6709221258830319,
+    "weighted_r2": 0.8841919580042432
+  }
+}

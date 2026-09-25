@@ -14,6 +14,13 @@ results/
 data/raw_demand/
 data/scenarios/generated/
 data/scenarios/panel_monthly.csv
+data/scenarios/comparison/
+
+# Goldens: pesados o derivados de la data cruda (sólo locales); expected/ y el
+# shape_params de fixture sí se versionan.
+tests/golden/fixtures/panel_monthly.csv
+tests/golden/fixtures/results/
+tests/golden/_dumps/
 
 ### JupyterNotebooks ###
 .ipynb_checkpoints

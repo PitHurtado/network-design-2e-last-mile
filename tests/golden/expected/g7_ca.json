@@ -1,0 +1,124 @@
+{
+  "annual_expected": {
+    "facilities": [
+      "ABAROA",
+      "ACHACHICALA",
+      "COTA_COTA",
+      "LLOJETA",
+      "LOS_PINOS",
+      "MALLASA",
+      "PERIFERICA",
+      "SOPOCACHI",
+      "ZONA_CEMENTERIO"
+    ],
+    "horizon_weight": 12,
+    "normal-annual_expected": {
+      "cost_dc_total": 126365.83824,
+      "cost_facility_total": 2249721.14464,
+      "costs": "52a0a9a6fed08aebdaa4b3e7214ea8c224e61cf2f39d4902826321dcca474ed9",
+      "fleet_size": "1515e766170d24d2cf5a733271e929c98b222c36a2a02ecacb0bbc237b00433d",
+      "parameters": "083c96c8ac943163ed5db7be779c9dbbd4617084de95b1139aced5028fa1a1f0",
+      "pixels": 161
+    },
+    "periods": 1,
+    "scenario_ids": [
+      "normal-annual_expected"
+    ]
+  },
+  "expected": {
+    "facilities": [
+      "ABAROA",
+      "ACHACHICALA",
+      "COTA_COTA",
+      "LLOJETA",
+      "LOS_PINOS",
+      "MALLASA",
+      "PERIFERICA",
+      "SOPOCACHI",
+      "ZONA_CEMENTERIO"
+    ],
+    "horizon_weight": 1,
+    "normal-expected": {
+      "cost_dc_total": 1516214.22759,
+      "cost_facility_total": 26994967.94971,
+      "costs": "88a59aca9c9cdcc61024c93e54e1098e4fabb5a3d20dc9da3d9191308779c307",
+      "fleet_size": "41a5836c2091fc638fbdfbf2732a919af68f4f1fae241c6b7b01e19d18d93029",
+      "parameters": "f4d413281929194b2b4484281450e6ee27e6fbbfd55324ed82a46f0fff1553ce",
+      "pixels": 161
+    },
+    "periods": 12,
+    "scenario_ids": [
+      "normal-expected"
+    ]
+  },
+  "optimization_euclidean": {
+    "facilities": [
+      "ABAROA",
+      "ACHACHICALA",
+      "COTA_COTA",
+      "LLOJETA",
+      "LOS_PINOS",
+      "MALLASA",
+      "PERIFERICA",
+      "SOPOCACHI",
+      "ZONA_CEMENTERIO"
+    ],
+    "horizon_weight": 1,
+    "normal-optimization-001": {
+      "cost_dc_total": 1494763.12039,
+      "cost_facility_total": 26662392.91901,
+      "costs": "ecf53aa6377262cdefbdb678831e86857edbcbb0542f6f91724b75abcc59e3ef",
+      "fleet_size": "b623603c32377dd97629eed3f1dd11e777dfbdd0fd6575deb40df9d29a8ecfdb",
+      "parameters": "51bcda0994e0fae6fb8a9fce4a733ccf9dec29166b8e55e6fe78827ccc06a6d4",
+      "pixels": 161
+    },
+    "normal-optimization-002": {
+      "cost_dc_total": 1489534.32917,
+      "cost_facility_total": 26519845.76571,
+      "costs": "2198d4182e4b4bbe3db39ad8627a55a94dfa170c6d795e467501bbf8e3e5c5c8",
+      "fleet_size": "26b4b68dad97be6f407032da9f37975261df96cbe088afbff1e4010dfcb51507",
+      "parameters": "484614f81e242979ccbb67cfaf9adcc53016b8bab43249675111558ab32fa8fd",
+      "pixels": 161
+    },
+    "periods": 12,
+    "scenario_ids": [
+      "normal-optimization-001",
+      "normal-optimization-002"
+    ]
+  },
+  "optimization_matrix": {
+    "facilities": [
+      "ABAROA",
+      "ACHACHICALA",
+      "COTA_COTA",
+      "LLOJETA",
+      "LOS_PINOS",
+      "MALLASA",
+      "PERIFERICA",
+      "SOPOCACHI",
+      "ZONA_CEMENTERIO"
+    ],
+    "horizon_weight": 1,
+    "normal-optimization-001": {
+      "cost_dc_total": 1494763.12039,
+      "cost_facility_total": 27542752.21762,
+      "costs": "cd5d9353147f7a26df405539fe8f12ef20e9b92d0caf5663698925cb9d1cb353",
+      "fleet_size": "52862f93d0d634560edefc1095db4ca0605f0f91fde34fbe26d3e519cbd8f4c5",
+      "parameters": "68e62958ccabf307c40f19b35c39f6e1afd825b5cf294dce13c8e7981662ef48",
+      "pixels": 161
+    },
+    "normal-optimization-002": {
+      "cost_dc_total": 1489534.32917,
+      "cost_facility_total": 27388475.3481,
+      "costs": "7e3c8bb2270e23a4ed78af522f32783054840cc09ac2fe6b2eda0d2a31cb8ea5",
+      "fleet_size": "030169b5c530acb5853885a2113758e3c630f59c0383c9ea9e5ff3c7e0d1c796",
+      "parameters": "6128cd2ac1220d54c839006d4cf7484f837d15838415220d17f5852a7f11fc9e",
+      "pixels": 161
+    },
+    "periods": 12,
+    "scenario_ids": [
+      "normal-optimization-001",
+      "normal-optimization-002"
+    ]
+  }
+}

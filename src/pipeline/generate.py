@@ -36,6 +36,7 @@ from src.core.constants import (
     REGIME_STOP_EXPONENT,
     SEED_BASE,
     scenario_dir,
+    comparison_dir,
 )
 from src.core.logging import get_logger
 from src.pipeline.marginals import expected_matrix
@@ -62,6 +63,7 @@ class ScenarioGenerator:
         sigma_common_stop: float,
         sigma_common_drop: float,
         cholesky: np.ndarray,
+        dependence_mode: str = "spatial_joint",
         regime_stop_exponent: float = REGIME_STOP_EXPONENT,
         regime_drop_exponent: float = REGIME_DROP_EXPONENT,
     ):
@@ -73,6 +75,11 @@ class ScenarioGenerator:
         self.sigma_common_stop = sigma_common_stop
         self.sigma_common_drop = sigma_common_drop
         self.cholesky = cholesky
+        if dependence_mode not in {"independent", "spatial_joint", "historical_bootstrap"}:
+            raise ValueError("dependence_mode must be independent, spatial_joint or historical_bootstrap")
+        self.dependence_mode = dependence_mode
+        self.bootstrap_stop_shocks: list[np.ndarray] | None = None
+        self.bootstrap_drop_shocks: list[np.ndarray] | None = None
         if not np.isclose(regime_stop_exponent + regime_drop_exponent, 1.0):
             raise ValueError("Regime stop/drop exponents must add to 1.")
         self.regime_stop_exponent = regime_stop_exponent
@@ -81,7 +88,13 @@ class ScenarioGenerator:
         self.cells_drawn = 0
 
     @classmethod
-    def from_fit(cls, fitted: dict, pixels: list[str], cholesky: np.ndarray) -> "ScenarioGenerator":
+    def from_fit(
+        cls,
+        fitted: dict,
+        pixels: list[str],
+        cholesky: np.ndarray,
+        dependence_mode: str = "spatial_joint",
+    ) -> "ScenarioGenerator":
         """Build a generator from the fitted marginals, aligned on `pixels`."""
         sigma_stop = fitted["stop"]["sigma"]["sigma"].reindex(pixels).to_numpy(dtype=float)
         sigma_drop = fitted["drop"]["sigma"]["sigma"].reindex(pixels).to_numpy(dtype=float)
@@ -98,10 +111,11 @@ class ScenarioGenerator:
             sigma_common_stop=fitted["stop"]["sigma_common"],
             sigma_common_drop=fitted["drop"]["sigma_common"],
             cholesky=cholesky,
+            dependence_mode=dependence_mode,
         )
 
     @classmethod
-    def from_params(cls, params: dict) -> "ScenarioGenerator":
+    def from_params(cls, params: dict, dependence_mode: str = "spatial_joint") -> "ScenarioGenerator":
         """Rebuild a generator from a persisted `shape_params.json`.
 
         This is the reproducible path: given the parameter file and the tracked raw
@@ -142,13 +156,36 @@ class ScenarioGenerator:
             sigma_common_stop=params["stop"]["sigma_common"],
             sigma_common_drop=params["drop"]["sigma_common"],
             cholesky=cholesky_factor(sigma),
+            dependence_mode=dependence_mode,
             regime_stop_exponent=float(scaling["stop_exponent"]),
             regime_drop_exponent=float(scaling["drop_exponent"]),
         )
 
     def _spatial_field(self, rng: np.random.Generator) -> np.ndarray:
         """One draw of the spatially correlated standard normal field."""
-        return self.cholesky @ rng.standard_normal(len(self.pixels))
+        independent_field = rng.standard_normal(len(self.pixels))
+        if self.dependence_mode == "independent":
+            return independent_field
+        return self.cholesky @ independent_field
+
+    def set_bootstrap_shocks(self, stop_shocks: list[np.ndarray], drop_shocks: list[np.ndarray]) -> None:
+        """Attach month-specific historical joint shocks for bootstrap sampling."""
+        if len(stop_shocks) != N_PERIODS or len(drop_shocks) != N_PERIODS:
+            raise ValueError(f"Bootstrap shocks must contain {N_PERIODS} calendar periods.")
+        expected_shape = (len(self.pixels),)
+        for shocks in (stop_shocks, drop_shocks):
+            if any(np.asarray(values).ndim != 2 or np.asarray(values).shape[0] != expected_shape[0] for values in shocks):
+                raise ValueError("Each bootstrap shock matrix must have shape (n_pixels, n_historical_draws).")
+        self.bootstrap_stop_shocks = [np.asarray(values, dtype=float) for values in stop_shocks]
+        self.bootstrap_drop_shocks = [np.asarray(values, dtype=float) for values in drop_shocks]
+
+    def _bootstrap_field_pair(self, rng: np.random.Generator, period: int) -> tuple[np.ndarray, np.ndarray]:
+        if self.bootstrap_stop_shocks is None or self.bootstrap_drop_shocks is None:
+            raise ValueError("historical_bootstrap requires set_bootstrap_shocks before draw().")
+        stop_values = self.bootstrap_stop_shocks[period]
+        drop_values = self.bootstrap_drop_shocks[period]
+        index = int(rng.integers(stop_values.shape[1]))
+        return stop_values[:, index], drop_values[:, index]
 
     def draw(self, rng: np.random.Generator, multiplier: float, deterministic: str | None = None):
         """Draw one scenario.
@@ -170,6 +207,20 @@ class ScenarioGenerator:
                 f_drop = np.exp(-0.5 * self.sigma_common_drop**2)
                 dev_stop = np.exp(-0.5 * self.sigma_stop**2)
                 dev_drop = np.exp(-0.5 * self.sigma_drop**2)
+            elif self.dependence_mode == "historical_bootstrap":
+                f_stop = f_drop = 1.0
+                shock_stop, shock_drop = self._bootstrap_field_pair(rng, t)
+                dev_stop = np.exp(shock_stop)
+                dev_drop = np.exp(shock_drop)
+            elif self.dependence_mode == "independent":
+                # Strict baseline: no common period factor.  Fold its variance
+                # into each pixel's own shock so the marginal dispersion remains
+                # comparable with the spatial model.
+                f_stop = f_drop = 1.0
+                total_sigma_stop = np.sqrt(self.sigma_stop**2 + self.sigma_common_stop**2)
+                total_sigma_drop = np.sqrt(self.sigma_drop**2 + self.sigma_common_drop**2)
+                dev_stop = np.exp(total_sigma_stop * self._spatial_field(rng) - 0.5 * total_sigma_stop**2)
+                dev_drop = np.exp(total_sigma_drop * self._spatial_field(rng) - 0.5 * total_sigma_drop**2)
             else:
                 f_stop = float(np.exp(rng.normal(0.0, self.sigma_common_stop) - 0.5 * self.sigma_common_stop**2))
                 f_drop = float(np.exp(rng.normal(0.0, self.sigma_common_drop) - 0.5 * self.sigma_common_drop**2))
@@ -219,6 +270,18 @@ class ScenarioGenerator:
 def write_scenario(payload: dict, regime: str, version: str, scenario_set: str, id_scenario: str) -> Path:
     """Write one scenario under its immutable version/regime/set directory."""
     directory = scenario_dir(regime, version, scenario_set)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"scenario_{id_scenario}.json"
+    with open(path, "w") as file:
+        json.dump(payload, file, indent=2)
+    return path
+
+
+def write_comparison_scenario(
+    payload: dict, regime: str, version: str, method: str, scenario_set: str, id_scenario: str
+) -> Path:
+    """Write one scenario for a paired dependence-model comparison."""
+    directory = comparison_dir(version, regime, method, scenario_set)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"scenario_{id_scenario}.json"
     with open(path, "w") as file:
@@ -344,6 +407,139 @@ def write_manifest(regime: str, version: str, scenario_set: str, manifest: dict)
         json.dump(manifest, file, indent=2, default=str)
     logger.info(f"Manifest written to {path}")
     return path
+
+
+def write_comparison_manifest(regime: str, version: str, method: str, scenario_set: str, manifest: dict) -> Path:
+    directory = comparison_dir(version, regime, method, scenario_set)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "manifest.json"
+    with open(path, "w") as file:
+        json.dump(manifest, file, indent=2, default=str)
+    return path
+
+
+def generate_comparison_set(
+    generator: ScenarioGenerator,
+    regime: str,
+    multiplier: float,
+    method: str,
+    n_scenarios: int,
+    version: str = DEFAULT_SCENARIO_VERSION,
+    seed_base: int = SEED_BASE,
+    params_sha256: str | None = None,
+) -> dict:
+    """Generate a validation set for one dependence method.
+
+    The caller creates one generator per method.  Both methods consume exactly the
+    same SeedSequence streams, so scenario ``i`` is a paired comparison.
+    """
+    if method not in {"independent", "spatial_joint", "historical_bootstrap"}:
+        raise ValueError("Unknown comparison method")
+    if generator.dependence_mode != method:
+        raise ValueError(
+            f"Generator dependence_mode={generator.dependence_mode!r} does not match method={method!r}"
+        )
+    generator.floor_hits = 0
+    generator.cells_drawn = 0
+    totals = []
+    ids = []
+    for index, seed in enumerate(_seeds(seed_base, "validation", n_scenarios), start=1):
+        id_scenario = scenario_id(version, regime, "validation", index)
+        rng = np.random.Generator(np.random.PCG64(seed))
+        stop, drop = generator.draw(rng, multiplier)
+        totals.append(float((stop * drop).sum() / N_PERIODS))
+        payload = generator.to_payload(stop, drop, id_scenario, "simulated")
+        write_comparison_scenario(payload, regime, version, method, "validation", id_scenario)
+        ids.append(id_scenario)
+
+    return {
+        "schema_version": 1,
+        "version": version,
+        "regime": regime,
+        "scenario_set": "validation",
+        "method": method,
+        "scenario_ids": ids,
+        "multiplier": multiplier,
+        "n_scenarios": len(ids),
+        "seed_base": seed_base,
+        "seed_scheme": "SeedSequence([seed_base, validation_code=100]).spawn(index); paired across methods",
+        "shape_params_sha256": params_sha256,
+        "period_total_mean": float(np.mean(totals)),
+        "period_total_p10": float(np.quantile(totals, 0.10)),
+        "period_total_p90": float(np.quantile(totals, 0.90)),
+        "stop_floor_hits": generator.floor_hits,
+        "stop_cells_drawn": generator.cells_drawn,
+        "stop_floor_share": generator.floor_hits / max(generator.cells_drawn, 1),
+        "pixels": len(generator.pixels),
+        "periods": N_PERIODS,
+    }
+
+
+def load_comparison_generated(
+    regime: str,
+    method: str,
+    version: str = DEFAULT_SCENARIO_VERSION,
+    scenario_set: str = "validation",
+) -> pd.DataFrame:
+    """Load one comparison set into a long DataFrame."""
+    directory = comparison_dir(version, regime, method, scenario_set)
+    rows = []
+    for path in sorted(directory.glob("scenario_*.json")):
+        with open(path) as file:
+            data = json.load(file)
+        for pixel in data["pixels"]:
+            for t in range(N_PERIODS):
+                rows.append(
+                    {
+                        "method": method,
+                        "regime": regime,
+                        "id_scenario": data["id_scenario"],
+                        "id_pixel": pixel["id_pixel"],
+                        "period": t,
+                        "stop": pixel["stop"][t],
+                        "drop": pixel["drop"][t],
+                        "demand": pixel["demand"][t],
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def historical_bootstrap_shocks(
+    panel: pd.DataFrame,
+    pixels: list[str],
+    expected_stop: np.ndarray,
+    expected_drop: np.ndarray,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Build month-specific joint shocks from historical pixel observations.
+
+    Each returned matrix has shape ``(n_pixels, n_years_observed_for_month)``.
+    Missing pixel-months receive a neutral shock, while each pixel's observed
+    shocks are centred and mean-preserved before bootstrap sampling.
+    """
+    included = panel[~panel["excluded"]].copy()
+    stop_out, drop_out = [], []
+    for month in range(1, N_PERIODS + 1):
+        month_frame = included[included["month"] == month]
+        years = sorted(month_frame["year"].unique())
+        stop_shocks = np.zeros((len(pixels), len(years)), dtype=float)
+        drop_shocks = np.zeros((len(pixels), len(years)), dtype=float)
+        for i, id_pixel in enumerate(pixels):
+            rows = month_frame[month_frame["id_pixel"] == id_pixel].set_index("year")
+            for j, year in enumerate(years):
+                if year not in rows.index:
+                    continue
+                observed_stop = max(float(rows.loc[year, "n_customers"]), 1.0)
+                observed_drop = max(float(rows.loc[year, "drop"]), 1e-9)
+                stop_shocks[i, j] = np.log(observed_stop / expected_stop[i, month - 1])
+                drop_shocks[i, j] = np.log(observed_drop / expected_drop[i, month - 1])
+        for shocks in (stop_shocks, drop_shocks):
+            centre = shocks.mean(axis=1, keepdims=True)
+            variance = shocks.var(axis=1, ddof=1, keepdims=True) if shocks.shape[1] > 1 else np.zeros((len(pixels), 1))
+            shocks -= centre
+            shocks -= 0.5 * variance
+        stop_out.append(stop_shocks)
+        drop_out.append(drop_shocks)
+    return stop_out, drop_out
 
 
 def load_generated(
