@@ -5,7 +5,6 @@ Example:
 """
 
 import argparse
-import json
 from pathlib import Path
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
@@ -13,8 +12,8 @@ from src.core.contract import ScenarioLayout
 from src.scenarios.fitting.panel import load_panel
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.generation.sets import ScenarioSetWriter, SetSpec
+from src.scenarios.params import ShapeParams
 from src.scenarios.reports.comparison import METHODS, build_comparison_report
-from src.tools.io import sha256_json
 
 
 def main() -> None:
@@ -35,10 +34,9 @@ def main() -> None:
     if not PATH_SHAPE_PARAMS.exists():
         parser.error(f"{PATH_SHAPE_PARAMS} not found; run fit_params first")
 
-    with open(PATH_SHAPE_PARAMS) as file:
-        params = json.load(file)
+    params = ShapeParams.load(PATH_SHAPE_PARAMS)
     regimes = REGIMES if args.all else (args.regime,)
-    digest = sha256_json(params)
+    digest = params.sha256
     writer = ScenarioSetWriter(ScenarioLayout.for_comparison(args.version))
 
     for regime in regimes:

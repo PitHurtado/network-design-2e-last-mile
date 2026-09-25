@@ -3,18 +3,14 @@
 Use this when the regime policy changes but the fitted historical marginals and
 spatial dependence do not need to be refit:
 
-    python -m src.scenarios.cli.recalibrate_regimes --n 50
+    python -m src.scenarios.cli.recalibrate_regimes --validation-n 100
 """
 
 import argparse
-import json
-from datetime import date
 
-import numpy as np
-
-from src.core.constants import PATH_SHAPE_PARAMS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, REGIME_TARGETS, SEED_BASE
-from src.scenarios.fitting.regimes import calibrate_all
-from src.scenarios.generation.generator import ScenarioGenerator
+from src.core.constants import PATH_SHAPE_PARAMS, SEED_BASE
+from src.scenarios.fitting.fitter import ParamsFitter
+from src.scenarios.params import ShapeParams
 
 
 def main() -> None:
@@ -23,35 +19,8 @@ def main() -> None:
     parser.add_argument("--seed-base", type=int, default=SEED_BASE)
     args = parser.parse_args()
 
-    with open(PATH_SHAPE_PARAMS) as file:
-        params = json.load(file)
-
-    params["regime_scaling"] = {
-        "stop_exponent": REGIME_STOP_EXPONENT,
-        "drop_exponent": REGIME_DROP_EXPONENT,
-    }
-    generator = ScenarioGenerator.from_params(params)
-    regimes = calibrate_all(
-        total_for=lambda multiplier, rng: generator.mean_period_total(rng, multiplier),
-        base_total=generator.base_period_total(),
-        seed_base=args.seed_base,
-        n_scenarios=args.validation_n,
-        seeds=np.random.SeedSequence([args.seed_base, 100]).spawn(args.validation_n),
-    )
-    params["version"] = max(int(params.get("version", 0)), 3)
-    params["generated_on"] = date.today().isoformat()
-    params["seed_base"] = args.seed_base
-    params["calibrated_n_scenarios"] = args.validation_n
-    params["regimes"] = {
-        regime: {
-            "target_period_demand": REGIME_TARGETS[regime],
-            "multiplier": result["multiplier"],
-            "realized_period_demand": result["realized"],
-        }
-        for regime, result in regimes.items()
-    }
-    with open(PATH_SHAPE_PARAMS, "w") as file:
-        json.dump(params, file, indent=2)
+    params, regimes = ParamsFitter(seed_base=args.seed_base).recalibrate(ShapeParams.load(PATH_SHAPE_PARAMS), args.validation_n)
+    params.save(PATH_SHAPE_PARAMS)
 
     print("Regímenes recalibrados:")
     for regime, result in regimes.items():

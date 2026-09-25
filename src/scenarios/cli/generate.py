@@ -4,13 +4,12 @@ poetry run python -m src.scenarios.cli.generate --all --version v3
 """
 
 import argparse
-import json
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
 from src.core.contract import ScenarioLayout
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.generation.sets import ScenarioSetWriter, SetSpec
-from src.tools.io import sha256_json
+from src.scenarios.params import ShapeParams
 from src.tools.logging import get_logger
 
 logger = get_logger("GenerateScenarios")
@@ -33,13 +32,12 @@ def main() -> None:
     if not PATH_SHAPE_PARAMS.exists():
         parser.error(f"{PATH_SHAPE_PARAMS} not found — run src.scenarios.cli.fit_params first")
 
-    with open(PATH_SHAPE_PARAMS) as file:
-        params = json.load(file)
+    params = ShapeParams.load(PATH_SHAPE_PARAMS)
 
     generator = ScenarioGenerator.from_params(params)
     regimes = REGIMES if args.all else (args.regime,)
 
-    digest = sha256_json(params)
+    digest = params.sha256
     writer = ScenarioSetWriter(ScenarioLayout.generated(args.version))
     for regime in regimes:
         multiplier = params["regimes"][regime]["multiplier"]

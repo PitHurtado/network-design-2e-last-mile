@@ -29,6 +29,7 @@ from src.core.constants import (
 )
 from src.core.contract import DEPENDENCE_METHODS, ScenarioLayout
 from src.scenarios.generation.sets import ScenarioSetWriter
+from src.scenarios.params import ShapeParams
 from src.scenarios.spatial import cell_center, haversine_matrix, pixel_centroids, pixel_grid_cells, pixel_neighbor_pairs
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
@@ -115,8 +116,8 @@ def _layer_from_pixel(id_pixel: str) -> str:
     return str(id_pixel).replace("_", "-").split("-", 1)[0]
 
 
-GRID_X = [GRID_LON0 + (col + .5) * GRID_DLON for col in range(GRID_N_COLS)]
-GRID_Y = [GRID_LAT0 + (row + .5) * GRID_DLAT for row in range(GRID_N_ROWS)]
+GRID_X = [GRID_LON0 + (col + 0.5) * GRID_DLON for col in range(GRID_N_COLS)]
+GRID_Y = [GRID_LAT0 + (row + 0.5) * GRID_DLAT for row in range(GRID_N_ROWS)]
 
 
 def _grid_heatmap_trace(
@@ -173,9 +174,7 @@ def _grid_heatmap_trace(
             "Promedio stop: %{customdata[5]:.2f}<br>"
             "Promedio drop: %{customdata[6]:.2f}<br>"
             "Promedio demanda: %{customdata[7]:.2f}<br>"
-            "CV demanda: %{customdata[8]:.3f}<br>"
-            + hover_label
-            + ": %{customdata[1]:.3f}<extra></extra>"
+            "CV demanda: %{customdata[8]:.3f}<br>" + hover_label + ": %{customdata[1]:.3f}<extra></extra>"
         ),
         showscale=False,
     )
@@ -222,9 +221,7 @@ def _conditional_high(frame: pd.DataFrame, pairs: pd.DataFrame, value: str, hist
     if frame.empty or pairs.empty:
         return float("nan")
     work = frame.copy()
-    work["observation"] = (
-        list(zip(work["year"], work["month"])) if historical else list(zip(work["id_scenario"], work["period"]))
-    )
+    work["observation"] = list(zip(work["year"], work["month"])) if historical else list(zip(work["id_scenario"], work["period"]))
     thresholds = work.groupby("id_pixel")[value].quantile(0.75)
     work["high"] = work[value] >= work["id_pixel"].map(thresholds)
     matrix = work.pivot_table(index="observation", columns="id_pixel", values="high", aggfunc="mean")
@@ -247,9 +244,9 @@ def _pixel_period_metrics(generated: dict[str, pd.DataFrame]) -> pd.DataFrame:
         summary = grouped.agg(
             mean_demand="mean",
             std_demand="std",
-            p10=lambda x: x.quantile(.1),
+            p10=lambda x: x.quantile(0.1),
             p50="median",
-            p90=lambda x: x.quantile(.9),
+            p90=lambda x: x.quantile(0.9),
         ).reset_index()
         averages = (
             frame.groupby(["period", "id_pixel"])[["stop", "drop"]]
@@ -313,13 +310,13 @@ def _cell_polygon(cell: int) -> tuple[list[float], list[float]]:
     )
 
 
-def _robust_limits(values: list[np.ndarray] | np.ndarray, lower: float = .01, upper: float = .99) -> tuple[float, float]:
+def _robust_limits(values: list[np.ndarray] | np.ndarray, lower: float = 0.01, upper: float = 0.99) -> tuple[float, float]:
     """Use common percentile limits so a few extreme pixels do not flatten the map."""
     flattened = np.concatenate(values) if isinstance(values, list) else np.asarray(values)
     flattened = flattened[np.isfinite(flattened)]
     low, high = np.quantile(flattened, [lower, upper])
     if high <= low:
-        high = low + max(abs(low) * .01, 1e-6)
+        high = low + max(abs(low) * 0.01, 1e-6)
     return float(low), float(high)
 
 
@@ -353,7 +350,7 @@ def _grid_trace(
         hoveron="fills",
         fillcolor=fillcolor,
         visible=visible,
-        line=dict(color="rgba(255,255,255,.8)", width=.55),
+        line=dict(color="rgba(255,255,255,.8)", width=0.55),
         marker=dict(color=[value] * len(x), colorscale=colorscale, coloraxis=coloraxis),
         name=id_pixel,
         text=[id_pixel] * len(x),
@@ -376,23 +373,25 @@ def _grid_hover_trace(
     """Invisible hit-area centered on a pixel, independent of polygon-edge hover."""
     centers = np.asarray([cell_center(cell) for cell in sorted(cells)], dtype=float)
     lon, lat = centers.mean(axis=0)
-    customdata = [[
-        id_pixel,
-        value,
-        period,
-        method,
-        metric,
-        averages.get("stop"),
-        averages.get("drop"),
-        averages.get("demand"),
-        averages.get("cv"),
-    ]]
+    customdata = [
+        [
+            id_pixel,
+            value,
+            period,
+            method,
+            metric,
+            averages.get("stop"),
+            averages.get("drop"),
+            averages.get("demand"),
+            averages.get("cv"),
+        ]
+    ]
     return go.Scatter(
         x=[lon],
         y=[lat],
         mode="markers",
         marker=dict(size=24, color="rgba(255,255,255,.01)", line=dict(width=0)),
-        opacity=.01,
+        opacity=0.01,
         visible=visible,
         name=id_pixel,
         customdata=customdata,
@@ -421,7 +420,7 @@ def _pixel_grid_subplot(
     cv_values = grouped.std() / grouped.mean().replace(0, np.nan)
     all_mean = mean_values.to_numpy()
     all_cv = cv_values.replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Demanda media por píxel", "CV por píxel"), horizontal_spacing=.08)
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Demanda media por píxel", "CV por píxel"), horizontal_spacing=0.08)
     for period in range(N_PERIODS):
         for col, values, coloraxis, colorscale, label in (
             (1, mean_values, "coloraxis", "Viridis", "Demanda media"),
@@ -438,7 +437,7 @@ def _pixel_grid_subplot(
                         coloraxis,
                         colorscale,
                         float(np.nanmin(all_mean)) if col == 1 else 0.0,
-                        float(np.nanmax(all_mean)) if col == 1 else max(float(np.nanmax(all_cv)), .1),
+                        float(np.nanmax(all_mean)) if col == 1 else max(float(np.nanmax(all_cv)), 0.1),
                         label,
                         period == 0,
                     ),
@@ -451,8 +450,13 @@ def _pixel_grid_subplot(
         margin=dict(l=25, r=25, t=100, b=35),
         plot_bgcolor="white",
         paper_bgcolor="white",
-        coloraxis=dict(cmin=float(np.nanmin(all_mean)), cmax=float(np.nanmax(all_mean)), colorscale="Viridis", colorbar=dict(title="Demanda", x=.46)),
-        coloraxis2=dict(cmin=0, cmax=max(float(np.nanmax(all_cv)), .1), colorscale="YlOrRd", colorbar=dict(title="CV", x=1.02)),
+        coloraxis=dict(
+            cmin=float(np.nanmin(all_mean)),
+            cmax=float(np.nanmax(all_mean)),
+            colorscale="Viridis",
+            colorbar=dict(title="Demanda", x=0.46),
+        ),
+        coloraxis2=dict(cmin=0, cmax=max(float(np.nanmax(all_cv)), 0.1), colorscale="YlOrRd", colorbar=dict(title="CV", x=1.02)),
     )
     for axis in ("xaxis", "xaxis2"):
         fig.layout[axis].update(showgrid=True, gridcolor="#e5e7eb", scaleanchor="y" if axis == "xaxis" else "y2")
@@ -478,19 +482,21 @@ def _all_methods_grid_figure(
             f"{METHOD_LABELS[method]} · vecinos por CV",
         )
     ]
-    fig = make_subplots(rows=3, cols=3, subplot_titles=titles, horizontal_spacing=.045, vertical_spacing=.085)
+    fig = make_subplots(rows=3, cols=3, subplot_titles=titles, horizontal_spacing=0.045, vertical_spacing=0.085)
     summaries, all_mean, all_cv = {}, [], []
     for method in METHODS:
         frame = generated[method]
         grouped = frame.groupby(["period", "id_pixel"])
         mean_demand = grouped["demand"].mean()
         cv_demand = grouped["demand"].std() / mean_demand.replace(0, np.nan)
-        summary = pd.DataFrame({
-            "demand": mean_demand,
-            "cv": cv_demand,
-            "stop": grouped["stop"].mean(),
-            "drop": grouped["drop"].mean(),
-        }).reset_index()
+        summary = pd.DataFrame(
+            {
+                "demand": mean_demand,
+                "cv": cv_demand,
+                "stop": grouped["stop"].mean(),
+                "drop": grouped["drop"].mean(),
+            }
+        ).reset_index()
         summaries[method] = summary.set_index(["period", "id_pixel"]).to_dict("index")
         all_mean.append(mean_demand.to_numpy())
         all_cv.append(cv_demand.replace([np.inf, -np.inf], np.nan).dropna().to_numpy())
@@ -518,9 +524,7 @@ def _all_methods_grid_figure(
                         for pixel in pixels
                         if _layer_from_pixel(pixel) == layer and summary.get((period, pixel), {}).get(metric) is not None
                     }
-                    custom_values = {
-                        pixel: summary.get((period, pixel), {}) for pixel in values
-                    }
+                    custom_values = {pixel: summary.get((period, pixel), {}) for pixel in values}
                     fig.add_trace(
                         _grid_heatmap_trace(
                             values,
@@ -554,7 +558,18 @@ def _all_methods_grid_figure(
             for cell in footprints.get(pixel, set()):
                 grid_row, grid_col = divmod(int(cell), GRID_N_COLS)
                 z[grid_row][grid_col] = relative_value
-                customdata[grid_row][grid_col] = [pixel, relative_value, 0, method, "relative_cv", metrics.get("stop"), metrics.get("drop"), metrics.get("demand"), metrics.get("cv"), _layer_from_pixel(pixel)]
+                customdata[grid_row][grid_col] = [
+                    pixel,
+                    relative_value,
+                    0,
+                    method,
+                    "relative_cv",
+                    metrics.get("stop"),
+                    metrics.get("drop"),
+                    metrics.get("demand"),
+                    metrics.get("cv"),
+                    _layer_from_pixel(pixel),
+                ]
         local_trace_indices[method] = len(fig.data)
         fig.add_trace(
             go.Heatmap(
@@ -597,9 +612,24 @@ def _all_methods_grid_figure(
         hovermode="closest",
         plot_bgcolor="white",
         paper_bgcolor="white",
-        coloraxis=dict(cmin=mean_min, cmax=mean_max, colorscale="Viridis", colorbar=dict(title="Demanda (p1–p99)", x=1.02, y=.82, len=.25, thickness=13)),
-        coloraxis2=dict(cmin=cv_min, cmax=cv_max, colorscale="YlOrRd", colorbar=dict(title="CV (p1–p99)", x=1.02, y=.50, len=.25, thickness=13)),
-        coloraxis3=dict(cmin=relative_min, cmax=relative_max, colorscale="YlOrRd", colorbar=dict(title="CV relativo al focal", x=1.02, y=.18, len=.25, thickness=13)),
+        coloraxis=dict(
+            cmin=mean_min,
+            cmax=mean_max,
+            colorscale="Viridis",
+            colorbar=dict(title="Demanda (p1–p99)", x=1.02, y=0.82, len=0.25, thickness=13),
+        ),
+        coloraxis2=dict(
+            cmin=cv_min,
+            cmax=cv_max,
+            colorscale="YlOrRd",
+            colorbar=dict(title="CV (p1–p99)", x=1.02, y=0.50, len=0.25, thickness=13),
+        ),
+        coloraxis3=dict(
+            cmin=relative_min,
+            cmax=relative_max,
+            colorscale="YlOrRd",
+            colorbar=dict(title="CV relativo al focal", x=1.02, y=0.18, len=0.25, thickness=13),
+        ),
     )
     x_range = [GRID_X[0] - GRID_DLON / 2, GRID_X[-1] + GRID_DLON / 2]
     y_range = [GRID_Y[0] - GRID_DLAT / 2, GRID_Y[-1] + GRID_DLAT / 2]
@@ -718,11 +748,11 @@ def _grid_inspector_html(payload: dict) -> str:
     encoded = json.dumps(browser_payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     return (
         '<div id="grid-inspector" class="grid-inspector">'
-        '<h4>Explorador visual de vecinos</h4>'
+        "<h4>Explorador visual de vecinos</h4>"
         '<p class="hint" id="grid-inspector-status">Pasa el cursor sobre un píxel: la tercera columna mostrará el CV relativo a ese píxel focal.</p>'
         '<div id="grid-inspector-body"></div>'
         '<p class="hint">La tercera columna conserva los mismos límites espaciales y pinta todos los píxeles del layer activo. El color representa el CV de la razón demanda_píxel / demanda_focal; los colores más cálidos son relaciones menos estables.</p>'
-        '</div>'
+        "</div>"
         f'<script type="application/json" id="grid-inspector-data">{encoded}</script>'
         """
 <script>
@@ -848,7 +878,7 @@ def _global_period_control_html(configs: list[dict], layers: list[str]) -> str:
         '<label for="global-layer">Layer</label>'
         f'<select id="global-layer" class="layer-select" aria-label="Seleccionar layer">{layer_options}</select>'
         '<span class="scope">Filtros globales: actualizan mapas y explorador local.</span>'
-        '</div>'
+        "</div>"
         f'<script type="application/json" id="period-config">{encoded}</script>'
         """
 <script>
@@ -898,10 +928,10 @@ def _delta_map_figure(
     alternative = generated[method].groupby(["period", "id_pixel"])["demand"].mean()
     delta = (alternative - baseline).rename("value")
     relative = (delta / baseline.replace(0, np.nan)).rename("value")
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Diferencia absoluta", "Diferencia relativa"), horizontal_spacing=.08)
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Diferencia absoluta", "Diferencia relativa"), horizontal_spacing=0.08)
     layers = sorted({_layer_from_pixel(pixel) for pixel in pixels})
-    limit = float(np.nanquantile(np.abs(delta.to_numpy()), .98)) or 1.0
-    rel_limit = float(np.nanquantile(np.abs(relative.to_numpy()), .98)) or 1.0
+    limit = float(np.nanquantile(np.abs(delta.to_numpy()), 0.98)) or 1.0
+    rel_limit = float(np.nanquantile(np.abs(relative.to_numpy()), 0.98)) or 1.0
     for period in range(N_PERIODS):
         for col, values, coloraxis, label, metric in (
             (1, delta, "coloraxis", "Δ demanda", "delta"),
@@ -937,8 +967,15 @@ def _delta_map_figure(
         hovermode="closest",
         plot_bgcolor="white",
         paper_bgcolor="white",
-        coloraxis=dict(cmin=-limit, cmax=limit, colorscale="RdBu", colorbar=dict(title="Δ demanda", x=1.02, y=.76, len=.38, thickness=13)),
-        coloraxis2=dict(cmin=-rel_limit, cmax=rel_limit, colorscale="RdBu", colorbar=dict(title="Δ relativa", x=1.02, y=.24, len=.38, thickness=13)),
+        coloraxis=dict(
+            cmin=-limit, cmax=limit, colorscale="RdBu", colorbar=dict(title="Δ demanda", x=1.02, y=0.76, len=0.38, thickness=13)
+        ),
+        coloraxis2=dict(
+            cmin=-rel_limit,
+            cmax=rel_limit,
+            colorscale="RdBu",
+            colorbar=dict(title="Δ relativa", x=1.02, y=0.24, len=0.38, thickness=13),
+        ),
     )
     fig.layout.xaxis.update(showgrid=True, gridcolor="#e5e7eb", scaleanchor="y")
     fig.layout.yaxis.update(showgrid=True, gridcolor="#e5e7eb")
@@ -960,8 +997,13 @@ def _fig_period_cv(metrics: pd.DataFrame) -> go.Figure:
     for method in METHODS:
         view = data[data["method"] == method]
         fig.add_trace(go.Scatter(x=view["period"] + 1, y=view["cv"], mode="lines+markers", name=METHOD_LABELS[method]))
-    fig.update_layout(height=390, margin=dict(l=60, r=20, t=30, b=50), xaxis=dict(dtick=1, title="Período"),
-                      yaxis_title="CV de demanda agregada", plot_bgcolor="white")
+    fig.update_layout(
+        height=390,
+        margin=dict(l=60, r=20, t=30, b=50),
+        xaxis=dict(dtick=1, title="Período"),
+        yaxis_title="CV de demanda agregada",
+        plot_bgcolor="white",
+    )
     return fig
 
 
@@ -970,10 +1012,21 @@ def _fig_distance(distance: pd.DataFrame) -> go.Figure:
     for method in ("historical",) + METHODS:
         view = distance[distance["method"] == method]
         if not view.empty:
-            fig.add_trace(go.Scatter(x=view["distance_km"], y=view["correlation"], mode="lines+markers",
-                                     name="Histórico" if method == "historical" else METHOD_LABELS[method]))
-    fig.update_layout(height=390, margin=dict(l=60, r=20, t=30, b=50), xaxis_title="Distancia entre píxeles (km)",
-                      yaxis_title="Correlación de log-demanda normalizada", plot_bgcolor="white")
+            fig.add_trace(
+                go.Scatter(
+                    x=view["distance_km"],
+                    y=view["correlation"],
+                    mode="lines+markers",
+                    name="Histórico" if method == "historical" else METHOD_LABELS[method],
+                )
+            )
+    fig.update_layout(
+        height=390,
+        margin=dict(l=60, r=20, t=30, b=50),
+        xaxis_title="Distancia entre píxeles (km)",
+        yaxis_title="Correlación de log-demanda normalizada",
+        plot_bgcolor="white",
+    )
     return fig
 
 
@@ -1039,9 +1092,7 @@ def _neighbor_rows(panel: pd.DataFrame, generated: dict[str, pd.DataFrame], pixe
                         "ring": ring,
                         "mean_correlation": hist_corr["correlation"].mean(),
                         "n_pairs": len(hist_corr),
-                        "high_given_high": _conditional_high(
-                            historical, pairs, HISTORICAL_COLUMNS[quantity], historical=True
-                        ),
+                        "high_given_high": _conditional_high(historical, pairs, HISTORICAL_COLUMNS[quantity], historical=True),
                     }
                 )
             for method, frame in generated.items():
@@ -1076,9 +1127,7 @@ def _summary_table(metrics: pd.DataFrame, neighbors: pd.DataFrame) -> str:
         index=False, classes="summary"
     )
     cv = metrics[(metrics["metric"] == "aggregate_cv") & (metrics["quantity"] == "demand")].set_index("method")
-    neighbor_demand = neighbors[
-        (neighbors["quantity"] == "demand") & (neighbors["ring"] == 1)
-    ].set_index("method")
+    neighbor_demand = neighbors[(neighbors["quantity"] == "demand") & (neighbors["ring"] == 1)].set_index("method")
     baseline_cv = float(cv.loc["independent", "generated_cv"])
     baseline_corr = float(neighbor_demand.loc["independent", "mean_correlation"])
     insight_rows = []
@@ -1109,10 +1158,7 @@ def _fig_neighbor(neighbors: pd.DataFrame) -> go.Figure:
             continue
         fig.add_trace(
             go.Bar(
-                x=[
-                    "Anillo 1 · borde común" if int(r) == 1 else "Vecindad ≤2 saltos"
-                    for r in data["ring"]
-                ],
+                x=["Anillo 1 · borde común" if int(r) == 1 else "Vecindad ≤2 saltos" for r in data["ring"]],
                 y=data["mean_correlation"],
                 name="Histórico" if method == "historical" else METHOD_LABELS[method],
             )
@@ -1154,8 +1200,7 @@ def build_comparison_report(
     output_path: Path | None = None,
 ) -> Path:
     """Build HTML and tabular artifacts for one regime's paired comparison."""
-    with open(PATH_SHAPE_PARAMS) as file:
-        params = json.load(file)
+    params = ShapeParams.load(PATH_SHAPE_PARAMS)
     panel_path = PATH_SHAPE_PARAMS.parent / "panel_monthly.csv"
     panel = pd.read_csv(panel_path)
     writer = ScenarioSetWriter(ScenarioLayout.for_comparison(version))
@@ -1168,9 +1213,13 @@ def build_comparison_report(
     output_path = output_path or output_dir / "demand_comparison.html"
 
     generated_long = pd.concat(generated.values(), ignore_index=True)
-    historical_long = _historical_panel(panel).rename(
-        columns={"n_customers": "stop", "model_demand": "demand"}
-    )[["year", "month", "id_pixel", "stop", "drop", "demand"]].copy()
+    historical_long = (
+        _historical_panel(panel)
+        .rename(columns={"n_customers": "stop", "model_demand": "demand"})[
+            ["year", "month", "id_pixel", "stop", "drop", "demand"]
+        ]
+        .copy()
+    )
     historical_long["method"] = "historical"
     historical_long["regime"] = "historical"
     historical_long["id_scenario"] = historical_long.apply(
@@ -1195,9 +1244,7 @@ def build_comparison_report(
         pair = generated["independent"].merge(
             generated[method], on=["id_scenario", "id_pixel", "period"], suffixes=("_independent", f"_{method}")
         )
-        paired_differences[method] = float(
-            (pair["demand_independent"] - pair[f"demand_{method}"]).abs().mean()
-        )
+        paired_differences[method] = float((pair["demand_independent"] - pair[f"demand_{method}"]).abs().mean())
     paired_summary = {
         "regime": regime,
         "version": version,
@@ -1211,9 +1258,7 @@ def build_comparison_report(
         "first_ring_demand_correlation": {
             row["method"]: float(row["mean_correlation"])
             for _, row in neighbors[
-                (neighbors["metric"] == "neighbor_correlation")
-                & (neighbors["quantity"] == "demand")
-                & (neighbors["ring"] == 1)
+                (neighbors["metric"] == "neighbor_correlation") & (neighbors["quantity"] == "demand") & (neighbors["ring"] == 1)
             ].iterrows()
         },
     }
@@ -1239,19 +1284,15 @@ def build_comparison_report(
     grid_payload["focus_trace_indices"] = focus_trace_indices
     grid_figure_html = _html(grid_figure, div_id="grid-dashboard")
     layers = sorted({_layer_from_pixel(pixel) for pixel in pixels})
-    grid_trace_layers = [
-        layer
-        for method in METHODS
-        for _metric in ("demand", "cv")
-        for layer in layers
-    ]
+    grid_trace_layers = [layer for method in METHODS for _metric in ("demand", "cv") for layer in layers]
     period_configs = [
         {
             "id": "grid-dashboard",
             "tracesPerPeriod": len(METHODS) * 2 * len(layers),
             "totalTraces": len(grid_figure.data),
             "traceLayers": grid_trace_layers,
-            "alwaysVisible": list(grid_payload["local_trace_indices"].values()) + list(grid_payload["focus_trace_indices"].values()),
+            "alwaysVisible": list(grid_payload["local_trace_indices"].values())
+            + list(grid_payload["focus_trace_indices"].values()),
             "nPeriods": N_PERIODS,
             "title": "Comparación de grilla",
         }
@@ -1259,7 +1300,7 @@ def build_comparison_report(
     map_sections = [
         f'<div class="subsection"><h3>Los tres métodos: demanda media y CV por píxel</h3>'
         f'<span class="scale-note">Escalas comparables en los seis paneles: demanda usa <strong>Viridis</strong> y CV usa <strong>YlOrRd</strong>, con límites comunes p1–p99; los extremos se saturan para que no dominen el mapa.</span>'
-        f'{grid_figure_html}{_grid_inspector_html(grid_payload)}</div>'
+        f"{grid_figure_html}{_grid_inspector_html(grid_payload)}</div>"
     ]
     for method in METHODS[1:]:
         delta_id = f"delta-{method}"

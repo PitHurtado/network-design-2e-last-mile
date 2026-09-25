@@ -9,7 +9,6 @@ Every insight is computed from the data rather than written by hand, so the pros
 cannot silently go stale when the instance changes.
 """
 
-import json
 
 import numpy as np
 import pandas as pd
@@ -22,6 +21,7 @@ from src.scenarios.fitting.panel import load_panel
 from src.scenarios.generation.dependence import SpatialJoint
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.generation.sets import ScenarioSetWriter
+from src.scenarios.params import ShapeParams
 from src.scenarios.spatial import (
     cholesky_factor,
     correlation_matrix,
@@ -98,8 +98,7 @@ code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 0.9
 
 def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dict:
     """Load parameters, the historical panel and every generated regime."""
-    with open(PATH_SHAPE_PARAMS) as file:
-        params = json.load(file)
+    params = ShapeParams.load(PATH_SHAPE_PARAMS)
     panel = load_panel()
     writer = ScenarioSetWriter(ScenarioLayout.generated(version))
     generated = {regime: writer.load_long(regime, "validation") for regime in regimes}

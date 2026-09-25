@@ -1,7 +1,6 @@
 """Constants for the application: paths, grid geometry and enums."""
 
 from enum import Enum
-from pathlib import Path
 
 from src.tools.paths import DATA_DIR, RESULTS_DIR, ROOT_DIR  # noqa: F401 - re-exported
 
