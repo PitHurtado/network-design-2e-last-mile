@@ -20,16 +20,6 @@ from src.tools.logging import get_logger
 logger = get_logger("Regimes")
 
 
-def spawn_seeds(seed_base: int, n_scenarios: int) -> list:
-    """The seed sequence `fit` calibrates on.
-
-    Calibration and generation must consume the *same* seeds, otherwise the
-    multiplier is tuned on one Monte Carlo sample and applied to another, leaving
-    the written scenarios a couple of percent off their target.
-    """
-    return np.random.SeedSequence(seed_base).spawn(n_scenarios)
-
-
 class RegimeCalibrator:
     """Finds, per regime, the multiplier whose mean per-period total over `seeds` hits the target."""
 

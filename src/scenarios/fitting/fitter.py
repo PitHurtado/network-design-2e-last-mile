@@ -8,7 +8,6 @@ history does not need to be refit.
 
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from src.core.constants import (
@@ -21,9 +20,10 @@ from src.core.constants import (
     SEED_BASE,
 )
 from src.scenarios.fitting.marginals import fit_marginals
-from src.scenarios.fitting.regimes import RegimeCalibrator, spawn_seeds
+from src.scenarios.fitting.regimes import RegimeCalibrator
 from src.scenarios.generation.dependence import SpatialJoint
 from src.scenarios.generation.generator import ScenarioGenerator
+from src.scenarios.generation.seeds import set_seeds
 from src.scenarios.params import ShapeParams
 from src.scenarios.spatial import (
     cholesky_factor,
@@ -53,11 +53,12 @@ class FitResult:
 class ParamsFitter:
     """Fits `ShapeParams` from the monthly panel.
 
-    `n_calibration` is the number of simulated scenarios the regime multipliers are tuned
-    on; `bins` the number of distance bins of the empirical correlogram.
+    `n_calibration` is the number of validation streams the regime multipliers are tuned
+    on (the validation set's size, so its scenarios hit the targets exactly); `bins` the
+    number of distance bins of the empirical correlogram.
     """
 
-    def __init__(self, bins: int = 12, n_calibration: int = 50, seed_base: int = SEED_BASE):
+    def __init__(self, bins: int = 12, n_calibration: int = 100, seed_base: int = SEED_BASE):
         self.bins = bins
         self.n_calibration = n_calibration
         self.seed_base = seed_base
@@ -91,11 +92,8 @@ class ParamsFitter:
         sigma = correlation_matrix(distances, spatial["rho_km"], spatial["nugget"], spatial["plateau"])
         chol = cholesky_factor(sigma)
 
-        # ── Regime calibration ───────────────────────────────────────────────
-        generator = ScenarioGenerator.from_fit(fitted, pixels, SpatialJoint(chol))
-        base_total = generator.base_period_total()
+        base_total = ScenarioGenerator.from_fit(fitted, pixels, SpatialJoint(chol)).base_period_total()
         logger.info(f"Base per-period model demand (no regime scaling): {base_total:,.0f}")
-        regimes = RegimeCalibrator(generator, spawn_seeds(self.seed_base, self.n_calibration)).calibrate_all()
 
         # ── Persisted form ───────────────────────────────────────────────────
         season = fitted["stop"]["season"].set_index(["layer", "month"])["season"]
@@ -128,11 +126,21 @@ class ParamsFitter:
                 "drop_exponent": REGIME_DROP_EXPONENT,
             },
             "size_class": fitted["size_class"].reindex(pixels).to_dict(),
-            "regimes": self._regimes_block(regimes),
+            "regimes": None,  # calibrated below, on the persisted form
             "base_period_demand": base_total,
             "crosswalk_share_mean": float(panel["crosswalk_share"].mean()),
         }
+        # ── Regime calibration ───────────────────────────────────────────────
+        # On the generator the scenarios will actually be drawn from (rebuilt from the
+        # rounded, persisted parameters) and on the validation streams they will consume,
+        # so the written validation sets hit their targets exactly.
+        regimes = self._calibrate(ShapeParams(params), self.n_calibration)
+        params["regimes"] = self._regimes_block(regimes)
         return FitResult(ShapeParams(params), correlogram, spatial, regimes)
+
+    def _calibrate(self, params: ShapeParams, n_scenarios: int) -> dict:
+        generator = ScenarioGenerator.from_params(params)
+        return RegimeCalibrator(generator, set_seeds(self.seed_base, "validation", n_scenarios)).calibrate_all()
 
     @staticmethod
     def _quantity(part: dict, season: pd.Series, pixels: list[str]) -> dict:
@@ -162,9 +170,7 @@ class ParamsFitter:
             "stop_exponent": REGIME_STOP_EXPONENT,
             "drop_exponent": REGIME_DROP_EXPONENT,
         }
-        generator = ScenarioGenerator.from_params(ShapeParams(raw))
-        seeds = np.random.SeedSequence([self.seed_base, 100]).spawn(validation_n)
-        regimes = RegimeCalibrator(generator, seeds).calibrate_all()
+        regimes = self._calibrate(ShapeParams(raw), validation_n)
         raw["version"] = max(int(raw.get("version", 0)), 3)
         raw.pop("generated_on", None)
         raw["seed_base"] = self.seed_base

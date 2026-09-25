@@ -27,7 +27,7 @@ from src.core.constants import (
 )
 from src.core.contract import DEPENDENCE_METHODS, SCENARIO_SETS, ScenarioLayout
 from src.core.inputs import get_pixels
-from src.scenarios.fitting.fitter import FitResult, ParamsFitter
+from src.scenarios.fitting.fitter import FitResult, ParamsFitter  # noqa: F401 - FitResult re-exported
 from src.scenarios.fitting.panel import load_panel
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.generation.seeds import SEED_SCHEME
@@ -60,12 +60,21 @@ def _command(subcommand: str, argv: list[str] | None, config: dict) -> dict:
 
 @dataclass(frozen=True)
 class FitConfig:
-    """`params fit`: fit on the panel, calibrate the regimes, optionally recalibrate on the validation seeds."""
+    """`params fit`: fit on the panel and calibrate the regimes on the first `n` validation streams.
 
-    n: int = 50
+    `validation_n` is kept only to reproduce artifacts made before the fit calibrated on the
+    validation streams itself (they ran a second recalibration pass of that size); when set
+    it is the calibration size.
+    """
+
+    n: int = 100
     bins: int = 12
     seed_base: int = SEED_BASE
     validation_n: int | None = None
+
+    @property
+    def calibration_n(self) -> int:
+        return self.validation_n if self.validation_n is not None else self.n
 
 
 class ParamsStage:
@@ -81,11 +90,8 @@ class ParamsStage:
         shutil.copyfile(panel_path, out / PANEL_FILE)
         if panel_source is not None and panel_source.exists():
             shutil.copyfile(panel_source, out / PANEL_SOURCE_FILE)
-        fitter = ParamsFitter(bins=config.bins, n_calibration=config.n, seed_base=config.seed_base)
+        fitter = ParamsFitter(bins=config.bins, n_calibration=config.calibration_n, seed_base=config.seed_base)
         result = fitter.fit(pd.read_csv(out / PANEL_FILE), set(get_pixels()))
-        if config.validation_n is not None:
-            params, regimes = fitter.recalibrate(result.params, config.validation_n)
-            result = FitResult(params, result.correlogram, result.spatial, regimes)
         result.params.save(out / PARAMS_FILE)
         return result
 
@@ -113,9 +119,7 @@ class ParamsStage:
             load_panel()  # builds and caches it
         artifact = store.new_candidate(self.kind)
         result = self.produce_fit(artifact.path, config, panel, PATH_PANEL_SOURCE)
-        seeds = {"seed_base": config.seed_base, "scheme": "calibration on SeedSequence(seed_base).spawn(n)"}
-        if config.validation_n is not None:
-            seeds["scheme"] += f"; recalibrated on {SEED_SCHEME} (validation, n={config.validation_n})"
+        seeds = {"seed_base": config.seed_base, "scheme": f"calibration on {SEED_SCHEME} (validation, n={config.calibration_n})"}
         Manifest(
             kind="params",
             id=artifact.id,

@@ -1,7 +1,7 @@
 """`scenarios`: build the panel, fit parameters, generate and compare scenario versions.
 
     scenarios panel build [--dry-run]
-    scenarios params fit --n 50 [--validation-n 100]      -> cp-* candidate
+    scenarios params fit [--n 100]                        -> cp-* candidate
     scenarios params recalibrate --from p1 [--validation-n 100]
     scenarios generate --params p1                        -> cv-* candidate
     scenarios compare --params p1 [--regimes normal] [--n 100]   -> cc-* (exploratory)
@@ -83,9 +83,8 @@ def main(argv: list[str] | None = None) -> None:
 
     params = sub.add_parser("params", help="shape parameters").add_subparsers(dest="action", required=True)
     fit = params.add_parser("fit", help="fit on the panel and calibrate the regimes")
-    fit.add_argument("--n", type=int, default=50, help="scenarios the regime multipliers are calibrated on")
+    fit.add_argument("--n", type=int, default=100, help="validation streams the regime multipliers are calibrated on")
     fit.add_argument("--bins", type=int, default=12, help="distance bins of the correlogram")
-    fit.add_argument("--validation-n", type=int, default=None, help="then recalibrate on the first N validation streams")
     cli.add_seed_base(fit, SEED_BASE)
     recal = params.add_parser("recalibrate", help="new regime multipliers for existing parameters")
     recal.add_argument("--from", dest="parent", required=True, help="params artifact (p1, cp-...)")
@@ -113,7 +112,7 @@ def main(argv: list[str] | None = None) -> None:
     def params_handler(args) -> int:
         stage = ParamsStage()
         if args.action == "fit":
-            config = FitConfig(n=args.n, bins=args.bins, seed_base=args.seed_base, validation_n=args.validation_n)
+            config = FitConfig(n=args.n, bins=args.bins, seed_base=args.seed_base)
             artifact = stage.fit(store, config, argv)
         else:
             parent = store.resolve(args.parent, ArtifactKind.PARAMS)
