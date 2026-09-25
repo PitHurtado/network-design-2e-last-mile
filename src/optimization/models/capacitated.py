@@ -27,6 +27,7 @@ class CapacitatedSAAModel(UncapacitatedSAAModel):
     """Installation `Y[i,q]` plus fleet capacity on the installed level."""
 
     NAME = "capacitated"
+    USES_CAPACITY = True
     Features = CapacitatedFeatures
     DEFAULT_FEATURES = CapacitatedFeatures()
     BLOCKS = (

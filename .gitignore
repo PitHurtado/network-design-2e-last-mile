@@ -15,6 +15,7 @@ results/runs/*/*
 # parámetros ajustados, raws chicos); no lo que pesa o se regenera desde ellos.
 #   data/params/pN/       shape_params.json + manifest + validation (el panel copiado no)
 #   data/scenarios/vN/    manifests + validation (los scenario_*.json no)
+#   data/facilities/fN/   tabla de capacidad por satélite + manifest + validation
 #   data/sandbox/         candidatas descartables
 #   data/_archive/        versiones previas al esquema de versionado
 data/raw_demand/
@@ -23,6 +24,7 @@ data/sandbox/
 data/_archive/
 data/params/*/panel_monthly.csv
 data/params/*/reports/
+data/facilities/*/reports/
 data/scenarios/*/**/scenario_*.json
 data/scenarios/*/reports/
 # Layout anterior (hasta archivarlo)

@@ -3,7 +3,7 @@
     scenarios panel build [--dry-run]
     scenarios params fit [--n 100]                        -> cp-* candidate
     scenarios params recalibrate --from p1 [--validation-n 100]
-    scenarios generate --params p1                        -> cv-* candidate
+    scenarios generate --params p1                        -> cv-* candidate (+ capacity set)
     scenarios compare --params p1 [--regimes normal] [--n 100]   -> cc-* (exploratory)
     scenarios explore <v1|cv-*>
     scenarios validate <ref>        checks + reports/validation.html (scenarios)
@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> None:
     cli.add_regimes(gen)
     gen.add_argument("--optimization-n", type=int, default=30)
     gen.add_argument("--validation-n", type=int, default=100)
+    gen.add_argument("--capacity-n", type=int, default=100, help="scenarios of the capacity-sizing set (0 omits it)")
     cli.add_seed_base(gen, SEED_BASE)
 
     cmp_parser = sub.add_parser("compare", help="paired independent / spatial / bootstrap sets (exploratory)")
@@ -123,7 +124,9 @@ def main(argv: list[str] | None = None) -> None:
     def generate_handler(args) -> int:
         if args.optimization_n < 1 or args.validation_n < 2:
             parser.error("--optimization-n must be >= 1 and --validation-n >= 2")
-        config = GenerateConfig(args.params, tuple(args.regimes), args.optimization_n, args.validation_n, args.seed_base)
+        config = GenerateConfig(
+            args.params, tuple(args.regimes), args.optimization_n, args.validation_n, args.seed_base, args.capacity_n
+        )
         artifact = ScenarioStage().generate(store, config, argv)
         print(f"Candidata: {artifact.id}  ({artifact.path})\nSiguiente paso: scenarios validate {artifact.id}")
         return 0

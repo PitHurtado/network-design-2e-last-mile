@@ -119,7 +119,9 @@ def generated_root(ws: Workspace) -> Path:
         from src.scenarios.stages import GenerateConfig, ScenarioStage
 
         root = ws.path("scenarios", VERSION)
-        ScenarioStage.produce(root, ShapeParams.load(PARAMS), GenerateConfig("pG", REGIMES, optimization_n=3, validation_n=3))
+        ScenarioStage.produce(
+            root, ShapeParams.load(PARAMS), GenerateConfig("pG", REGIMES, optimization_n=3, validation_n=3, capacity_n=3)
+        )
         return root
 
     return ws.once("generated", build)
@@ -373,6 +375,25 @@ def g8_solve(ws: Workspace) -> dict:
     return out
 
 
+# ── G9: satellite capacity analysis ──────────────────────────────────────────
+
+
+def g9_capacity(ws: Workspace) -> dict:
+    from src.core.contract import ScenarioLayout
+    from src.optimization.capacity.analysis import CapacityConfig, run_analysis
+
+    out = ws.path("capacity")
+    summary = run_analysis(out, ScenarioLayout(generated_root(ws)), VERSION, CapacityConfig("vG"))
+    table = (out / "capacity.json").read_text()
+    dump("g9_capacity.json", table)
+    return {
+        "capacity": sha_text(table),
+        "peak_fleet": sha_text((out / "peak_fleet.csv").read_text()),
+        "assignment": sha_text((out / "assignment.json").read_text()),
+        "summary": summary["satellites"],
+    }
+
+
 PRODUCERS = {
     "g1_fit": g1_fit,
     "g2_recalibrate": g2_recalibrate,
@@ -382,4 +403,5 @@ PRODUCERS = {
     "g6_reports": g6_reports,
     "g7_ca": g7_ca,
     "g8_solve": g8_solve,
+    "g9_capacity": g9_capacity,
 }

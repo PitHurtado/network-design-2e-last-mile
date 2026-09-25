@@ -123,10 +123,22 @@ class InstanceBuilder:
     scenario's costs and fleet sizes.
     """
 
-    def __init__(self, layout: ScenarioLayout, version: str | None = None, routing=ContinuousApproximation):
+    def __init__(
+        self,
+        layout: ScenarioLayout,
+        version: str | None = None,
+        routing=ContinuousApproximation,
+        capacity=None,
+        facilities_id=None,
+    ):
         self.layout = layout
         self.version = version
         self.routing = routing
+        # CapacityTable of an `fN` artifact: satellite levels and costs. Without one, the
+        # values of input_facilities.xlsx remain, which only models without capacity
+        # (uncapacitated) and the goldens rely on; runs of capacitated models require it.
+        self.capacity = capacity
+        self.facilities_id = facilities_id
 
     @classmethod
     def for_version(cls, version: str, store: ArtifactStore | None = None) -> "InstanceBuilder":
@@ -137,6 +149,8 @@ class InstanceBuilder:
     def build(self, spec: InstanceSpec) -> Instance:
         vehicles = get_vehicles()
         facilities = get_facilities()
+        if self.capacity is not None:
+            self.capacity.apply(facilities)
         if spec.facilities_subset is not None:
             facilities = {k: v for k, v in facilities.items() if k in spec.facilities_subset}
 

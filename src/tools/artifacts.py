@@ -1,12 +1,13 @@
 """Versioned artifacts: official, immutable versions and disposable candidates.
 
 Every stage of the study produces an artifact: fitted parameters (`p1`, `p2`, ...),
-scenario versions (`v1`, ...), optimization runs (`r1`, ...). Any command writes a
+scenario versions (`v1`, ...), satellite capacity tables (`f1`, ...), optimization runs
+(`r1`, ...). Any command writes a
 *candidate* into the sandbox, named after its kind and creation time (`cp-20260925-101530`).
 A candidate becomes the next official version only through `validate` + `promote`.
 
     <official root>/<p|v|r><N>/      immutable once promoted
-    <sandbox root>/c<p|v|r|c>-<timestamp>/  disposable, gitignored
+    <sandbox root>/c<p|v|f|r|c>-<timestamp>/  disposable, gitignored
 
 Inside an artifact, `manifest.json`, `validation.json` and anything under `reports/` are
 metadata: they are excluded from the content digest, so a report can be regenerated
@@ -33,6 +34,7 @@ class ArtifactKind(Enum):
 
     PARAMS = ("p", DATA_DIR / "params", DATA_DIR / "sandbox" / "params")
     SCENARIOS = ("v", DATA_DIR / "scenarios", DATA_DIR / "sandbox" / "scenarios")
+    FACILITIES = ("f", DATA_DIR / "facilities", DATA_DIR / "sandbox" / "facilities")
     RUNS = ("r", RESULTS_DIR / "runs", RESULTS_DIR / "sandbox" / "runs")
     COMPARISONS = ("c", None, DATA_DIR / "sandbox" / "comparisons")  # exploratory, never promoted
 
@@ -122,6 +124,7 @@ class ArtifactStore:
             {
                 ArtifactKind.PARAMS: (base / "data" / "params", base / "data" / "sandbox" / "params"),
                 ArtifactKind.SCENARIOS: (base / "data" / "scenarios", base / "data" / "sandbox" / "scenarios"),
+                ArtifactKind.FACILITIES: (base / "data" / "facilities", base / "data" / "sandbox" / "facilities"),
                 ArtifactKind.RUNS: (base / "results" / "runs", base / "results" / "sandbox" / "runs"),
                 ArtifactKind.COMPARISONS: (None, base / "data" / "sandbox" / "comparisons"),
             }

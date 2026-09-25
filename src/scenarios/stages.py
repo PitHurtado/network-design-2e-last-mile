@@ -25,7 +25,7 @@ from src.core.constants import (
     REGIMES,
     SEED_BASE,
 )
-from src.core.contract import DEPENDENCE_METHODS, SCENARIO_SETS, ScenarioLayout
+from src.core.contract import DEPENDENCE_METHODS, ScenarioLayout
 from src.core.inputs import get_pixels
 from src.scenarios.fitting.fitter import FitResult, ParamsFitter  # noqa: F401 - FitResult re-exported
 from src.scenarios.fitting.panel import load_panel
@@ -235,6 +235,8 @@ class GenerateConfig:
     optimization_n: int = 30
     validation_n: int = 100
     seed_base: int = SEED_BASE
+    # 0 omits the set: versions made before it existed (v1) reproduce without it.
+    capacity_n: int = 100
 
 
 class ScenarioStage:
@@ -260,7 +262,10 @@ class ScenarioStage:
                 ("validation", config.validation_n),
                 ("expected", 1),
                 ("annual_expected", 1),
+                ("capacity", config.capacity_n),
             ):
+                if count == 0:
+                    continue
                 spec = SetSpec(regime, scenario_set, count, params.multiplier(regime), config.seed_base)
                 summary = writer.generate(generator, spec, params.sha256)
                 path = writer.write_manifest(
@@ -291,6 +296,7 @@ class ScenarioStage:
         def run(artifact: Artifact, manifest: Manifest, out: Path) -> None:  # pylint: disable=unused-argument
             config = dict(manifest.command["config"])
             config["regimes"] = tuple(config["regimes"])
+            config.setdefault("capacity_n", 0)
             params, _ = ParamsStage.load(store.resolve(config["params"], ArtifactKind.PARAMS))
             self.produce(out, params, GenerateConfig(**config))
 
@@ -306,12 +312,13 @@ class ScenarioValidator(Validator):
     def checks(self, artifact: Artifact) -> list[Check]:
         layout = ScenarioLayout(artifact.path)
         writer = ScenarioSetWriter(layout)
-        regimes = Manifest.load(artifact.manifest_path).command["config"]["regimes"]
+        manifest = Manifest.load(artifact.manifest_path)
+        regimes = manifest.command["config"]["regimes"]
         generated = {regime: writer.load_long(regime, "validation") for regime in regimes}
         manifests = {regime: read_json(layout.set_manifest(regime, "validation")) for regime in regimes}
         checks = contract_checks(generated, manifests)
         for regime in regimes:
-            for scenario_set in SCENARIO_SETS:
+            for scenario_set in manifest.details["sets"][regime]:
                 listed = read_json(layout.set_manifest(regime, scenario_set))["scenario_ids"]
                 on_disk = sorted(
                     p.name[len("scenario_") : -len(".json")] for p in layout.set_dir(regime, scenario_set).glob("scenario_*.json")

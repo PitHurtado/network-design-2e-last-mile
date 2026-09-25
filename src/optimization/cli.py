@@ -1,11 +1,15 @@
-"""`optimize`: versioned optimization runs over official scenario versions.
+"""`optimize`: satellite capacity tables and versioned optimization runs.
 
-    optimize flexibility --scenarios v1 [--regimes ...] [--flexibilities ...] [--cases ...]   -> cr-*
+    optimize capacity analyze --scenarios v2 [--levels percentiles-a|percentiles-b|fixed-grid]  -> cf-*
+    optimize flexibility --scenarios v2 --facilities f1 [--model flex|capacitated] [--regimes ...]   -> cr-*
     optimize evaluate --run r1              fixed-Y recourse on the validation scenarios   -> cr-*
-    optimize benchmark --scenarios v1       RP on the validation scenarios (theoretical VSS)  -> cr-*
+    optimize benchmark --scenarios v2 --facilities f1   RP on the validation scenarios (theoretical VSS)  -> cr-*
     optimize report <run> [--benchmark rK]  HTML under <run>/reports/
     optimize verify --scenarios v1 --n 3    CA + Gurobi smoke test
-    optimize validate <run> | promote <run> | list | show <run>
+    optimize validate <ref> | promote <ref> | list | show <ref>      (ref: cf-*/f<N> or cr-*/r<N>)
+
+Capacitated models (capacitated, flex) only run with --facilities: the promoted capacity
+table is where their satellite levels and costs come from.
 
 A leaf already solved in an official run with identical inputs and solver settings is
 copied instead of solved again.
@@ -15,10 +19,12 @@ import argparse
 import sys
 
 from src.core.constants import TypeOfFlexibility
+from src.optimization.capacity.analysis import CapacityConfig
+from src.optimization.capacity.levels import LEVEL_METHODS
 from src.optimization.experiments.flexibility import CASES
 from src.optimization.instance import InstanceBuilder
 from src.optimization.models import MODELS
-from src.optimization.stages import ALL_FLEXIBILITIES, RunConfig, RunStage, RunValidator
+from src.optimization.stages import ALL_FLEXIBILITIES, FacilityStage, FacilityValidator, RunConfig, RunStage, RunValidator
 from src.optimization.verify import verify
 from src.tools import cli
 from src.tools.artifacts import ArtifactKind, ArtifactStore
@@ -49,6 +55,7 @@ def main(argv: list[str] | None = None) -> None:
     flex.add_argument("--cases", nargs="+", choices=list(CASES), default=list(CASES))
     flex.add_argument("--overwrite", action="store_true", help="solve every leaf even if an official run already has it")
     flex.add_argument("--model", choices=sorted(MODELS), default="flex", help="model variant (policies apply to flex only)")
+    flex.add_argument("--facilities", default=None, help="capacity table (f1, cf-...); required by capacitated models")
     _add_solver(flex)
 
     evaluate = sub.add_parser("evaluate", help="evaluate a flexibility run's Y out of sample")
@@ -60,6 +67,14 @@ def main(argv: list[str] | None = None) -> None:
     cli.add_regimes(bench)
     bench.add_argument("--flexibilities", nargs="+", choices=flexibilities, default=list(ALL_FLEXIBILITIES))
     bench.add_argument("--model", choices=sorted(MODELS), default="flex")
+    bench.add_argument("--facilities", default=None)
+
+    capacity = sub.add_parser("capacity", help="satellite capacity table").add_subparsers(dest="action", required=True)
+    analyze = capacity.add_parser("analyze", help="peak fleet per satellite -> levels and costs")
+    analyze.add_argument("--scenarios", required=True, help="scenario version with a capacity set (v2, cv-...)")
+    analyze.add_argument("--levels", choices=sorted(LEVEL_METHODS), default="percentiles-a")
+    analyze.add_argument("--alpha", type=float, default=None, help="fixed share of OPEX (default: the tariff table's)")
+    cli.add_regimes(analyze)
     _add_solver(bench, mip_gap=False)
 
     report = sub.add_parser("report", help="HTML reports of a run")
@@ -75,6 +90,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     store = ArtifactStore()
     stage = RunStage(store)
+    facilities = FacilityStage(store)
 
     def announce(artifact) -> int:
         print(
@@ -92,16 +108,34 @@ def main(argv: list[str] | None = None) -> None:
             args.mip_gap,
             _overrides(args),
             args.model,
+            args.facilities,
         )
         return announce(stage.flexibility(config, argv, overwrite=args.overwrite))
 
     def benchmark_handler(args) -> int:
         config = RunConfig(
-            args.scenarios, tuple(args.regimes), tuple(args.flexibilities), (), args.time_limit, 0.0, _overrides(args), args.model
+            args.scenarios,
+            tuple(args.regimes),
+            tuple(args.flexibilities),
+            (),
+            args.time_limit,
+            0.0,
+            _overrides(args),
+            args.model,
+            args.facilities,
         )
         return announce(stage.benchmark(config, argv))
 
+    def capacity_handler(args) -> int:
+        config = CapacityConfig(args.scenarios, args.levels, tuple(args.regimes), args.alpha)
+        artifact = facilities.analyze(config, argv)
+        print(f"Tabla de capacidad: {artifact.id}  ({artifact.path})\nSiguiente paso: optimize validate {artifact.id}")
+        return 0
+
     def report_handler(args) -> int:
+        if ArtifactKind.of(args.ref) is ArtifactKind.FACILITIES:
+            print(f"Reporte: {facilities.report(store.resolve(args.ref, ArtifactKind.FACILITIES))}")
+            return 0
         benchmark = store.resolve(args.benchmark, ArtifactKind.RUNS) if args.benchmark else None
         for path in stage.report(store.resolve(args.ref, ArtifactKind.RUNS), benchmark):
             print(f"Reporte: {path}")
@@ -115,9 +149,14 @@ def main(argv: list[str] | None = None) -> None:
             "benchmark": benchmark_handler,
             "report": report_handler,
             "verify": lambda a: verify(InstanceBuilder.for_version(a.scenarios, store), a.n, a.max_run_time, a.regimes),
-            "validate": lambda a: cli.validate(store, a.ref, {ArtifactKind.RUNS: RunValidator()}),
-            "promote": lambda a: cli.promote(store, a.ref, {ArtifactKind.RUNS: None}),
-            "list": lambda a: cli.list_artifacts(store, [ArtifactKind.RUNS]),
+            "capacity": capacity_handler,
+            "validate": lambda a: cli.validate(
+                store, a.ref, {ArtifactKind.RUNS: RunValidator(), ArtifactKind.FACILITIES: FacilityValidator(facilities)}
+            ),
+            "promote": lambda a: cli.promote(
+                store, a.ref, {ArtifactKind.RUNS: None, ArtifactKind.FACILITIES: facilities.reproduce()}
+            ),
+            "list": lambda a: cli.list_artifacts(store, [ArtifactKind.FACILITIES, ArtifactKind.RUNS]),
             "show": lambda a: cli.show(store, a.ref),
         },
     )

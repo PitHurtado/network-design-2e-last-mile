@@ -93,3 +93,22 @@ def build_evaluation_report(
         },
     )
     return path
+
+
+def build_capacity_report(artifact_path: Path, output_path: Path, label: str) -> Path:
+    """Report of a facilities artifact (capacity table + peak fleets)."""
+    import pandas as pd
+
+    from src.optimization.capacity.table import CAPACITY_FILE
+    from src.tools.io import read_json
+    from src.visualization.results import capacity_report
+
+    manifest = read_json(artifact_path / "manifest.json")
+    data = capacity_report.CapacityReportData(
+        label=label,
+        method=manifest["command"]["config"]["levels"],
+        alpha_fixed=manifest["details"]["alpha_fixed"],
+        satellites=read_json(artifact_path / CAPACITY_FILE)["satellites"],
+        peaks=pd.read_csv(artifact_path / "peak_fleet.csv"),
+    )
+    return capacity_report.render(data, output_path)

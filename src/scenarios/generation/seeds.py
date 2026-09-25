@@ -7,8 +7,9 @@ pairs the dependence methods of a comparison.
 
 import numpy as np
 
-SET_CODES = {"optimization": 30, "validation": 100}
+SET_CODES = {"optimization": 30, "validation": 100, "capacity": 60}
 SEED_SCHEME = "SeedSequence([seed_base, set_code]).spawn(index); set_code optimization=30, validation=100"
+SEED_SCHEME_WITH_CAPACITY = SEED_SCHEME + ", capacity=60"
 
 
 def set_seeds(seed_base: int, scenario_set: str, n_scenarios: int) -> list[np.random.SeedSequence]:

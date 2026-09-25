@@ -32,6 +32,14 @@ class ExtensionTests(unittest.TestCase):
             class Broken(CapacitatedSAAModel):  # pylint: disable=unused-variable
                 BLOCKS = (Block("capacity", "constr", "_constr_capacity"),)
 
+    def test_capacitated_models_require_a_capacity_table(self):
+        from src.optimization.stages import RunInputs
+        from src.tools.artifacts import ArtifactStore
+
+        for model in ("capacitated", "flex"):
+            with self.assertRaisesRegex(ValueError, "--facilities"):
+                RunInputs.resolve(ArtifactStore(), "v1", None, model)
+
     def test_a_new_policy_registers_itself(self):
         class AlwaysOn(OperationPolicy):  # pylint: disable=unused-variable
             name = "test_always_on"

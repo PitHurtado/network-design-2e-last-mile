@@ -55,6 +55,9 @@ class GoldenTests(unittest.TestCase):
     def test_g7_ca(self):
         self._check("g7_ca")
 
+    def test_g9_capacity(self):
+        self._check("g9_capacity")
+
     @unittest.skipIf(os.environ.get("GOLDEN_SKIP_SOLVE"), "GOLDEN_SKIP_SOLVE set")
     def test_g8_solve(self):
         self._check("g8_solve")

@@ -14,7 +14,7 @@ from src.core.constants import N_PERIODS, SEED_BASE
 from src.core.contract import SCENARIO_SETS, ScenarioLayout, scenario_id
 from src.scenarios.generation.dependence import MeanShocks
 from src.scenarios.generation.generator import ScenarioGenerator
-from src.scenarios.generation.seeds import SEED_SCHEME, rng_for, set_seeds
+from src.scenarios.generation.seeds import SEED_SCHEME, SEED_SCHEME_WITH_CAPACITY, rng_for, set_seeds
 from src.tools.io import read_json, write_json
 from src.tools.logging import get_logger
 
@@ -55,7 +55,7 @@ class ScenarioSetWriter:
         generator.floor_hits = 0
         generator.cells_drawn = 0
         totals, ids = [], []
-        if spec.scenario_set in {"optimization", "validation"}:
+        if spec.scenario_set in {"optimization", "validation", "capacity"}:
             for index, seed in enumerate(set_seeds(spec.seed_base, spec.scenario_set, spec.n_scenarios), start=1):
                 id_scenario = scenario_id(spec.regime, spec.scenario_set, index)
                 stop, drop = generator.draw(rng_for(seed), spec.multiplier)
@@ -89,7 +89,7 @@ class ScenarioSetWriter:
             },
             "n_scenarios": len(ids),
             "seed_base": spec.seed_base,
-            "seed_scheme": SEED_SCHEME,
+            "seed_scheme": SEED_SCHEME_WITH_CAPACITY if spec.scenario_set == "capacity" else SEED_SCHEME,
             "shape_params_sha256": params_sha256,
             **self._totals(totals, generator),
             "periods": 1 if spec.scenario_set == "annual_expected" else N_PERIODS,

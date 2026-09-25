@@ -161,6 +161,8 @@ class BaseSAAModel:
     # Whether the model takes an operating policy (`type_of_flexibility`); experiments
     # sweep policies only for models that do.
     USES_POLICY: ClassVar[bool] = False
+    # Whether the model reads satellite levels and costs, i.e. needs a facilities artifact.
+    USES_CAPACITY: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)

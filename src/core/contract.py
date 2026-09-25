@@ -19,8 +19,10 @@ from src.tools.logging import get_logger
 
 logger = get_logger("Contract")
 
-SCENARIO_SETS = ("optimization", "validation", "expected", "annual_expected")
-SIMULATED_SETS = ("optimization", "validation")
+# optimization: the SAA sample; validation: out-of-sample evaluation; capacity: sizing the
+# satellites' capacity levels, on streams of its own so neither of the other two leaks.
+SCENARIO_SETS = ("optimization", "validation", "expected", "annual_expected", "capacity")
+SIMULATED_SETS = ("optimization", "validation", "capacity")
 DEPENDENCE_METHODS = ("independent", "spatial_joint", "historical_bootstrap")
 
 
