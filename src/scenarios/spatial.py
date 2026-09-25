@@ -69,10 +69,12 @@ def pixel_neighbor_pairs(
     crosswalk: pd.DataFrame | None = None,
     ring: int = 1,
 ) -> pd.DataFrame:
-    """Return pixel pairs whose grid footprints are within a given edge ring.
+    """Return pixel pairs whose grid footprints are at most `ring` edge steps apart.
 
     A first-ring neighbor shares a grid-cell edge with another pixel footprint.
-    The second ring is the graph distance-two neighborhood.  The construction uses
+    `ring=k` is the cumulative neighbourhood of graph distance <= k, so `ring=2`
+    includes the first ring (the comparison report labels it "hasta 2 saltos"). The
+    `ring` column carries the requested bound. The construction uses
     the regular grid rather than centroid distance, so merged rectangular pixels and
     cross-layer pixels are handled consistently with the input geometry.
     """
@@ -118,19 +120,14 @@ def pixel_neighbor_pairs(
         for target in neighbors:
             edges.add(tuple(sorted((source, target))))
 
-    if ring == 2:
-        first_ring = {pair for pair in edges}
-        second_edges = set(first_ring)
+    if ring > 1:
+        # Cumulative neighbourhood: every pixel reachable in at most `ring` edge steps.
         for source in allowed:
-            reached = set(adjacency[source])
-            for neighbor in list(reached):
-                reached.update(adjacency.get(neighbor, set()))
-            for target in reached:
-                if target != source:
-                    pair = tuple(sorted((source, target)))
-                    if pair not in first_ring:
-                        second_edges.add(pair)
-        edges = second_edges
+            reached, frontier = set(), {source}
+            for _ in range(ring):
+                frontier = {other for pixel in frontier for other in adjacency.get(pixel, set())} - reached - {source}
+                reached |= frontier
+            edges.update(tuple(sorted((source, target))) for target in reached)
 
     rows = [{"id_pixel": left, "neighbor": right, "ring": ring} for left, right in sorted(edges)]
     return pd.DataFrame(rows, columns=["id_pixel", "neighbor", "ring"])

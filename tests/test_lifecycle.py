@@ -21,7 +21,10 @@ class LifecycleTests(unittest.TestCase):
         cls.store = ArtifactStore.under(cls.base)
         # The tests run on a working tree that may be dirty; code provenance is tested separately.
         cls.promoter = Promoter(cls.store, require_clean_tree=False)
-        with mock.patch("src.scenarios.stages.PATH_PANEL_MONTHLY", FIXTURES / "panel_monthly.csv"):
+        with (
+            mock.patch("src.scenarios.stages.PATH_PANEL_MONTHLY", FIXTURES / "panel_monthly.csv"),
+            mock.patch("src.scenarios.stages.PATH_PANEL_SOURCE", cls.base / "no-panel-source.json"),
+        ):
             cls.candidate = ParamsStage().fit(cls.store, FitConfig(n=5, validation_n=5))
 
     @classmethod

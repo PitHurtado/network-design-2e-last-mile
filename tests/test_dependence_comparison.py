@@ -55,6 +55,19 @@ class DependenceComparisonTests(unittest.TestCase):
         self.assertNotIn(("A-1", "A-3"), actual)
         self.assertNotIn(("A-1", "A-4"), actual)
 
+    def test_neighbor_rings_are_cumulative(self):
+        # A path A-1 - A-2 - A-3 - A-4 along one grid row.
+        crosswalk = pd.DataFrame({"layer": ["A"] * 4, "pixel": [1, 2, 3, 4], "cell": [0, 1, 2, 3]})
+        pixels = ["A-1", "A-2", "A-3", "A-4"]
+
+        def pairs(ring):
+            frame = pixel_neighbor_pairs(pixels=pixels, crosswalk=crosswalk, ring=ring)
+            return {tuple(row) for row in frame[["id_pixel", "neighbor"]].to_numpy()}
+
+        self.assertEqual(pairs(1), {("A-1", "A-2"), ("A-2", "A-3"), ("A-3", "A-4")})
+        self.assertEqual(pairs(2), pairs(1) | {("A-1", "A-3"), ("A-2", "A-4")})
+        self.assertEqual(pairs(3), pairs(2) | {("A-1", "A-4")})
+
 
 if __name__ == "__main__":
     unittest.main()
