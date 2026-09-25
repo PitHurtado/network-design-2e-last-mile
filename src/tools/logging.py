@@ -9,7 +9,7 @@ class CustomLogger:
     """
     Crea un logger configurable con formato consistente para todo el proyecto.
     Ejemplo:
-        from src.core.logging import get_logger
+        from src.tools.logging import get_logger
         logger = get_logger(__name__)
         logger.info("Mensaje de prueba")
     """

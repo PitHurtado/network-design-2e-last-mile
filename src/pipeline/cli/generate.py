@@ -6,9 +6,11 @@ poetry run python -m src.pipeline.cli.generate --all --version v3
 import argparse
 import json
 
-from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE, scenario_dir
-from src.core.logging import get_logger
-from src.pipeline.generate import ScenarioGenerator, generate_set, shape_params_digest, write_manifest
+from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
+from src.core.contract import ScenarioLayout
+from src.pipeline.generate import ScenarioGenerator, generate_set, write_manifest
+from src.tools.io import sha256_json
+from src.tools.logging import get_logger
 
 logger = get_logger("GenerateScenarios")
 
@@ -36,7 +38,7 @@ def main() -> None:
     generator = ScenarioGenerator.from_params(params)
     regimes = REGIMES if args.all else (args.regime,)
 
-    digest = shape_params_digest(params)
+    digest = sha256_json(params)
     for regime in regimes:
         multiplier = params["regimes"][regime]["multiplier"]
         for scenario_set, count in (
@@ -45,7 +47,7 @@ def main() -> None:
             ("expected", 1),
             ("annual_expected", 1),
         ):
-            directory = scenario_dir(regime, args.version, scenario_set)
+            directory = ScenarioLayout.generated(args.version).set_dir(regime, scenario_set)
             if directory.exists() and any(directory.iterdir()) and not args.overwrite:
                 parser.error(f"{directory} already exists; choose a new --version or pass --overwrite")
             summary = generate_set(generator, regime, multiplier, scenario_set, count, args.version, args.seed_base, digest)

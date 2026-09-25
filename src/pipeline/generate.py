@@ -22,24 +22,17 @@ Discreteness enters only through the rounding of `stop`, whose effect on the
 realized correlogram is measured in the analysis report.
 """
 
-import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from src.core.constants import (
-    DEFAULT_SCENARIO_VERSION,
-    N_PERIODS,
-    REGIME_DROP_EXPONENT,
-    REGIME_STOP_EXPONENT,
-    SEED_BASE,
-    scenario_dir,
-    comparison_dir,
-)
-from src.core.logging import get_logger
+from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS, REGIME_DROP_EXPONENT, REGIME_STOP_EXPONENT, SEED_BASE
+from src.core.contract import ScenarioLayout, scenario_id
 from src.pipeline.marginals import expected_matrix
+from src.tools.io import write_json
+from src.tools.logging import get_logger
 
 logger = get_logger("Generate")
 
@@ -269,30 +262,13 @@ class ScenarioGenerator:
 
 def write_scenario(payload: dict, regime: str, version: str, scenario_set: str, id_scenario: str) -> Path:
     """Write one scenario under its immutable version/regime/set directory."""
-    directory = scenario_dir(regime, version, scenario_set)
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"scenario_{id_scenario}.json"
-    with open(path, "w") as file:
-        json.dump(payload, file, indent=2)
-    return path
+    return write_json(ScenarioLayout.generated(version).scenario_file(regime, scenario_set, id_scenario), payload)
 
 
-def write_comparison_scenario(
-    payload: dict, regime: str, version: str, method: str, scenario_set: str, id_scenario: str
-) -> Path:
+def write_comparison_scenario(payload: dict, regime: str, version: str, method: str, scenario_set: str, id_scenario: str) -> Path:
     """Write one scenario for a paired dependence-model comparison."""
-    directory = comparison_dir(version, regime, method, scenario_set)
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"scenario_{id_scenario}.json"
-    with open(path, "w") as file:
-        json.dump(payload, file, indent=2)
-    return path
-
-
-def scenario_id(version: str, regime: str, scenario_set: str, index: int | None = None) -> str:
-    """Stable, filename-safe identifier; never derived from filesystem ordering."""
-    base = f"{version}-{regime}-{scenario_set}"
-    return base if index is None else f"{base}-{index:03d}"
+    layout = ScenarioLayout.for_comparison(version)
+    return write_json(layout.scenario_file(regime, scenario_set, id_scenario, method), payload)
 
 
 def _seeds(seed_base: int, scenario_set: str, n_scenarios: int) -> list[np.random.SeedSequence]:
@@ -400,22 +376,13 @@ def generate_set(
 
 def write_manifest(regime: str, version: str, scenario_set: str, manifest: dict) -> Path:
     """Write a manifest next to the exact set it describes."""
-    directory = scenario_dir(regime, version, scenario_set)
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / "manifest.json"
-    with open(path, "w") as file:
-        json.dump(manifest, file, indent=2, default=str)
+    path = write_json(ScenarioLayout.generated(version).set_manifest(regime, scenario_set), manifest, default=str)
     logger.info(f"Manifest written to {path}")
     return path
 
 
 def write_comparison_manifest(regime: str, version: str, method: str, scenario_set: str, manifest: dict) -> Path:
-    directory = comparison_dir(version, regime, method, scenario_set)
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / "manifest.json"
-    with open(path, "w") as file:
-        json.dump(manifest, file, indent=2, default=str)
-    return path
+    return write_json(ScenarioLayout.for_comparison(version).set_manifest(regime, scenario_set, method), manifest, default=str)
 
 
 def generate_comparison_set(
@@ -436,9 +403,7 @@ def generate_comparison_set(
     if method not in {"independent", "spatial_joint", "historical_bootstrap"}:
         raise ValueError("Unknown comparison method")
     if generator.dependence_mode != method:
-        raise ValueError(
-            f"Generator dependence_mode={generator.dependence_mode!r} does not match method={method!r}"
-        )
+        raise ValueError(f"Generator dependence_mode={generator.dependence_mode!r} does not match method={method!r}")
     generator.floor_hits = 0
     generator.cells_drawn = 0
     totals = []
@@ -482,7 +447,7 @@ def load_comparison_generated(
     scenario_set: str = "validation",
 ) -> pd.DataFrame:
     """Load one comparison set into a long DataFrame."""
-    directory = comparison_dir(version, regime, method, scenario_set)
+    directory = ScenarioLayout.for_comparison(version).set_dir(regime, scenario_set, method)
     rows = []
     for path in sorted(directory.glob("scenario_*.json")):
         with open(path) as file:
@@ -548,7 +513,7 @@ def load_generated(
     scenario_set: str = "validation",
 ) -> pd.DataFrame:
     """Load simulated scenarios from a versioned set into a long DataFrame."""
-    directory = scenario_dir(regime, version, scenario_set)
+    directory = ScenarioLayout.generated(version).set_dir(regime, scenario_set)
     rows = []
     for path in sorted(directory.glob("scenario_*.json")):
         with open(path) as file:
@@ -568,9 +533,3 @@ def load_generated(
                     }
                 )
     return pd.DataFrame(rows)
-
-
-def shape_params_digest(params: dict) -> str:
-    """Stable digest stored in manifests to identify the exact source parameters."""
-    encoded = json.dumps(params, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(encoded).hexdigest()

@@ -20,9 +20,9 @@ import argparse
 import sys
 
 from src.core.constants import REGIMES
-from src.core.logging import get_logger
 from src.optimization.instance import Instance
 from src.optimization.models.uncapacitated import UncapacitatedSAAModel
+from src.tools.logging import get_logger
 
 logger = get_logger("VerifyEndToEnd")
 

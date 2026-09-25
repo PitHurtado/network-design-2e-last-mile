@@ -15,7 +15,7 @@ from typing import Callable
 import numpy as np
 
 from src.core.constants import REGIME_TARGETS
-from src.core.logging import get_logger
+from src.tools.logging import get_logger
 
 logger = get_logger("Regimes")
 

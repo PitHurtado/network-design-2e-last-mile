@@ -21,7 +21,6 @@ from src.core.constants import (
     SEED_BASE,
 )
 from src.core.inputs import get_pixels
-from src.core.logging import get_logger
 from src.pipeline.demand_panel import load_panel
 from src.pipeline.generate import ScenarioGenerator
 from src.pipeline.marginals import fit_marginals
@@ -35,6 +34,7 @@ from src.pipeline.spatial import (
     model_correlation,
     pixel_centroids,
 )
+from src.tools.logging import get_logger
 
 logger = get_logger("FitParams")
 

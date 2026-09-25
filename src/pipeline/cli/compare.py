@@ -8,15 +8,16 @@ import argparse
 import json
 from pathlib import Path
 
-from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE, comparison_dir
+from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
+from src.core.contract import ScenarioLayout
 from src.pipeline.generate import (
     ScenarioGenerator,
     generate_comparison_set,
     historical_bootstrap_shocks,
-    shape_params_digest,
     write_comparison_manifest,
 )
 from src.pipeline.reports.comparison import METHODS, build_comparison_report
+from src.tools.io import sha256_json
 
 
 def main() -> None:
@@ -40,11 +41,11 @@ def main() -> None:
     with open(PATH_SHAPE_PARAMS) as file:
         params = json.load(file)
     regimes = REGIMES if args.all else (args.regime,)
-    digest = shape_params_digest(params)
+    digest = sha256_json(params)
 
     for regime in regimes:
         for method in METHODS:
-            directory = comparison_dir(args.version, regime, method, "validation")
+            directory = ScenarioLayout.for_comparison(args.version).set_dir(regime, "validation", method)
             if directory.exists() and any(directory.iterdir()) and not args.overwrite:
                 parser.error(f"{directory} already exists; choose a new --version or pass --overwrite")
             if directory.exists() and args.overwrite:

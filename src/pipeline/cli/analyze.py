@@ -10,8 +10,8 @@ import argparse
 import sys
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
-from src.core.logging import get_logger
 from src.pipeline.reports.scenarios import build_report
+from src.tools.logging import get_logger
 
 logger = get_logger("AnalyzeScenarios")
 

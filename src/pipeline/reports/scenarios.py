@@ -16,7 +16,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, N_PERIODS, PATH_SHAPE_PARAMS, REGIME_TARGETS, RESULTS_DIR
-from src.core.logging import get_logger
+from src.core.contract import ScenarioLayout
 from src.pipeline.demand_panel import load_panel
 from src.pipeline.generate import ScenarioGenerator, load_generated
 from src.pipeline.marginals import fit_marginals
@@ -29,6 +29,8 @@ from src.pipeline.spatial import (
     model_correlation,
     pixel_centroids,
 )
+from src.tools.io import read_json
+from src.tools.logging import get_logger
 
 logger = get_logger("ScenarioAnalysis")
 
@@ -100,10 +102,7 @@ def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dic
     generated = {regime: load_generated(regime, version=version, scenario_set="validation") for regime in regimes}
     manifests = {}
     for regime in regimes:
-        from src.core.constants import scenario_dir
-
-        with open(scenario_dir(regime, version, "validation") / "manifest.json") as file:
-            manifests[regime] = json.load(file)
+        manifests[regime] = read_json(ScenarioLayout.generated(version).set_manifest(regime, "validation"))
     return {"params": params, "panel": panel, "generated": generated, "manifests": manifests}
 
 

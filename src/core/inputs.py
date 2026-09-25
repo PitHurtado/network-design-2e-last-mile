@@ -1,13 +1,11 @@
-"""Readers for every file the study takes as input: pixel grid, facilities,
-distance matrices, vehicle configs and the generated scenario JSONs.
+"""Readers for the raw inputs of the study: pixel grid, facilities, distance matrices
+and vehicle configs. Generated scenarios are read through `src.core.contract`.
 
-Shared on purpose: `src.pipeline` needs the pixel grid to fit shape parameters, and
+Shared on purpose: `src.scenarios` needs the pixel grid to fit shape parameters, and
 `src.optimization` needs all of it to build an `Instance`.
 """
 
 import ast
-import json
-from pathlib import Path
 
 import pandas as pd
 
@@ -17,10 +15,9 @@ from src.core.constants import (
     PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE,
     PATH_DATA_FACILITY,
     PATH_DATA_PIXEL,
-    scenario_dir,
 )
 from src.core.entities import Facility, Pixel, Vehicle
-from src.core.logging import get_logger
+from src.tools.logging import get_logger
 
 logger = get_logger("Inputs")
 
@@ -114,81 +111,3 @@ def get_pixels() -> dict[str, Pixel]:
     except FileNotFoundError as error:
         logger.error(f"File {PATH_DATA_PIXEL} not found")
         raise error
-
-
-def scenario_path(
-    id_scenario: str,
-    regime: str = "normal",
-    version: str | None = None,
-    scenario_set: str = "optimization",
-) -> Path:
-    """Path of a generated scenario file in a versioned, purpose-specific set."""
-    directory = (
-        scenario_dir(regime, scenario_set=scenario_set) if version is None else scenario_dir(regime, version, scenario_set)
-    )
-    return directory / f"scenario_{id_scenario}.json"
-
-
-def generated_scenario_ids(
-    regime: str,
-    n_scenarios: int,
-    version: str | None = None,
-    scenario_set: str = "optimization",
-) -> list[str]:
-    """Read canonical scenario ids from a set manifest, never from filename order."""
-    directory = (
-        scenario_dir(regime, scenario_set=scenario_set) if version is None else scenario_dir(regime, version, scenario_set)
-    )
-    with open(directory / "manifest.json") as file:
-        manifest = json.load(file)
-    if not manifest["optimization_compatible"]:
-        raise ValueError(f"Scenario set {directory} is not compatible with the 12-period optimizer.")
-    ids = manifest["scenario_ids"]
-    if n_scenarios > len(ids):
-        raise ValueError(f"Requested {n_scenarios} scenarios but {directory} contains {len(ids)}.")
-    return ids[:n_scenarios]
-
-
-def get_scenario(
-    id_scenario: str,
-    regime: str = "normal",
-    version: str | None = None,
-    scenario_set: str = "optimization",
-) -> dict[str, Pixel]:
-    """Get scenario pixels from an external file.
-
-    Only pixels present in both the scenario file and `input_pixels.xlsx` are
-    returned. A pixel in the scenario but missing from the grid is dropped, so the
-    mismatch is logged as a warning and counted rather than passing silently.
-    """
-    pixels = get_pixels()
-    path = scenario_path(id_scenario, regime, version, scenario_set)
-    if not path.exists():
-        logger.error(f"Scenario file {path} not found.")
-        raise FileNotFoundError(f"Scenario file {path} not found.")
-
-    with open(path, "r") as file:
-        data = json.load(file)
-
-    unknown = []
-    for pixel_data in data["pixels"]:
-        id_pixel = pixel_data["id_pixel"]
-        if id_pixel in pixels:
-            pixels[id_pixel].set_scenario_data(
-                demand_by_period=pixel_data["demand"],
-                drop_by_period=pixel_data["drop"],
-                stop_by_period=pixel_data["stop"],
-            )
-        else:
-            unknown.append(id_pixel)
-
-    if unknown:
-        logger.warning(f"{len(unknown)} pixels in {path.name} are absent from the grid and were dropped: {unknown[:5]}")
-
-    available = {i: p for i, p in pixels.items() if p.is_available}
-    missing = len(pixels) - len(available)
-    if missing:
-        logger.warning(f"{missing} grid pixels have no data in {path.name} and were excluded.")
-
-    logger.info(f"Scenario {id_scenario} ({regime}/{scenario_set}): {len(available)} pixels loaded.")
-    return available

@@ -55,8 +55,8 @@ from typing import Dict, NamedTuple, Optional
 import gurobipy as gb
 from gurobipy import GRB, quicksum  # pylint: disable=E0611
 
-from src.core.logging import get_logger
 from src.optimization.instance import Instance
+from src.tools.logging import get_logger
 
 logger = get_logger("SAAModel")
 

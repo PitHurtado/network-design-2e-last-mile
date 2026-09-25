@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from src.core.constants import N_PERIODS
-from src.core.logging import get_logger
+from src.tools.logging import get_logger
 
 logger = get_logger("Marginals")
 

@@ -31,7 +31,7 @@ from src.core.constants import (
     LAYER_DROP_THRESHOLD,
     PATH_CUSTOMER_PIXEL_LAYER,
 )
-from src.core.logging import get_logger
+from src.tools.logging import get_logger
 
 logger = get_logger("Crosswalk")
 

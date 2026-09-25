@@ -5,8 +5,8 @@ poetry run python -m src.pipeline.cli.build_panel
 
 import argparse
 
-from src.core.logging import get_logger
 from src.pipeline.demand_panel import build_panel, save_panel
+from src.tools.logging import get_logger
 
 logger = get_logger("BuildPanel")
 

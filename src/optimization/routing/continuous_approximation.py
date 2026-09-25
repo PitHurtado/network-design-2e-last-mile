@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from src.core.constants import N_PERIODS
 from src.core.entities import Facility, Vehicle
 from src.core.inputs import get_distance_facilities, get_distance_facility_delivery_zone
-from src.core.logging import get_logger
 from src.optimization.scenario import Scenario
+from src.tools.logging import get_logger
 
 logger = get_logger("ContinuousApproximation")
 

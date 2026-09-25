@@ -3,9 +3,7 @@
 from enum import Enum
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
-RESULTS_DIR = ROOT_DIR / "results"
+from src.tools.paths import DATA_DIR, RESULTS_DIR, ROOT_DIR  # noqa: F401 - re-exported
 
 # Raw inputs
 PATH_RAW_DEMAND = DATA_DIR / "raw_demand/base_customers_all_years_z7.csv"
@@ -29,37 +27,6 @@ PATH_PANEL_MONTHLY = PATH_ROOT_SCENARIO / "panel_monthly.csv"
 PATH_GENERATED_SCENARIOS = PATH_ROOT_SCENARIO / "generated"
 PATH_COMPARISON_SCENARIOS = PATH_ROOT_SCENARIO / "comparison"
 DEFAULT_SCENARIO_VERSION = "v3"
-SCENARIO_SETS = ("optimization", "validation", "expected", "annual_expected")
-
-
-def scenario_dir(
-    regime: str,
-    version: str = DEFAULT_SCENARIO_VERSION,
-    scenario_set: str = "optimization",
-) -> Path:
-    """Directory holding one immutable, purpose-specific scenario set."""
-    if scenario_set not in SCENARIO_SETS:
-        raise ValueError(f"Unknown scenario set {scenario_set!r}; expected one of {SCENARIO_SETS}.")
-    return PATH_GENERATED_SCENARIOS / version / regime / scenario_set
-
-
-def comparison_dir(
-    version: str = DEFAULT_SCENARIO_VERSION,
-    regime: str = "normal",
-    method: str = "spatial_joint",
-    scenario_set: str = "validation",
-) -> Path:
-    """Directory for paired demand-generation comparisons.
-
-    Comparison artifacts are deliberately separate from the scenario contract used
-    by the optimizer.  This lets us evaluate an alternative dependence model without
-    replacing an already published scenario version.
-    """
-    if scenario_set not in {"validation", "optimization"}:
-        raise ValueError("Comparison scenarios support validation or optimization sets only.")
-    if method not in {"independent", "spatial_joint", "historical_bootstrap"}:
-        raise ValueError("Unknown comparison method; expected independent, spatial_joint or historical_bootstrap.")
-    return PATH_COMPARISON_SCENARIOS / version / regime / method / scenario_set
 
 
 # ── Pixel grid geometry ───────────────────────────────────────────────────────
