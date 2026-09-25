@@ -178,7 +178,8 @@ blocks return `{scenario: expr}`, so the objective, `scenario_costs()` and `deci
 all read the same expressions. Fixing Y for an evaluation is its own block
 (`fix_installation`, enabled by `fixed_installation=`). Ablation is `disabled_blocks`
 (names are unique; the objective block is `operation_cost`, the variables `operation`);
-unknown names raise. When porting a model from `OLD/`, implement its blocks — do not copy
+unknown names raise, and each variant's `USES` declares which variable blocks every block
+reads, so disabling variables still in use fails at construction with what else to disable. When porting a model from `OLD/`, implement its blocks — do not copy
 the build/solve scaffolding.
 
 **Scenario generation:** `ScenarioGenerator.draw` multiplies expected demand by the

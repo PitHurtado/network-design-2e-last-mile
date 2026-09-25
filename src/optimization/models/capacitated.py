@@ -46,6 +46,13 @@ class CapacitatedSAAModel(UncapacitatedSAAModel):
         Block("capacity", "constr", "_constr_capacity", flag="capacity"),
     )
 
+    USES = {
+        "installation": ("install",),
+        "one_install_level": ("install",),
+        "fix_installation": ("install",),
+        "capacity": ("assignment", "install"),
+    }
+
     def __init__(self, instance, features=None, fixed_installation: dict[str, float] | None = None):
         super().__init__(instance, features)
         self.levels = {

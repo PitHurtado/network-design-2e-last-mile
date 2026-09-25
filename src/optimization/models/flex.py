@@ -46,6 +46,13 @@ class FlexSAAModel(CapacitatedSAAModel):
         Block("operation_le_install", "constr", "_constr_operation_le_install", flag="flex_operation", before="capacity"),
     )
 
+    USES = {
+        "operation_cost": ("operation",),
+        "one_operation_level": ("operation",),
+        "operation_le_install": ("operation", "install"),
+        "capacity": ("operation",),  # flex writes the capacity over Z
+    }
+
     def __init__(self, instance, features=None, fixed_installation=None, policy: OperationPolicy | None = None):
         self.policy = policy or policy_for(instance.config.type_of_flexibility)
         if instance.config.is_continuous_var_x:

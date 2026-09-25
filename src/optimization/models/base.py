@@ -158,6 +158,16 @@ class BaseSAAModel:
         Block("demand", "constr", "_constr_demand"),
     )
     BLOCKS: ClassVar[tuple[Block, ...]] = ()
+    # Which variable blocks each block reads. A variant adds its own (and may add to an
+    # inherited block's, as flex does for `capacity`); the union along the hierarchy is
+    # `REQUIREMENTS`. It turns "disabled the variables but not what uses them" — which
+    # used to surface as a KeyError deep in the build — into an explicit error.
+    USES: ClassVar[dict[str, tuple[str, ...]]] = {
+        "routing_facilities": ("assignment",),
+        "routing_dc": ("assignment",),
+        "demand": ("assignment",),
+    }
+    REQUIREMENTS: ClassVar[dict[str, frozenset]] = {name: frozenset(uses) for name, uses in USES.items()}
     # Whether the model takes an operating policy (`type_of_flexibility`); experiments
     # sweep policies only for models that do.
     USES_POLICY: ClassVar[bool] = False
@@ -178,6 +188,10 @@ class BaseSAAModel:
                     raise TypeError(f"{cls.__name__}: block '{block.name}' is placed before unknown block '{block.before}'.")
                 catalogue.insert(names.index(block.before), block)
         cls.CATALOGUE = tuple(catalogue)
+        requirements = dict(cls.__mro__[1].REQUIREMENTS)
+        for name, uses in cls.__dict__.get("USES", {}).items():
+            requirements[name] = requirements.get(name, frozenset()) | frozenset(uses)
+        cls.REQUIREMENTS = requirements
         if "NAME" in cls.__dict__:
             MODELS[cls.NAME] = cls
 
@@ -219,6 +233,27 @@ class BaseSAAModel:
             raise ValueError(
                 f"disabled_blocks names blocks that do not exist: {sorted(unknown)}. "
                 f"Known blocks: {sorted(self.all_block_names())}"
+            )
+        self._validate_requirements()
+
+    def _switched_on(self, block: Block) -> bool:
+        """On by flags and `disabled_blocks` (the `enabled_if` condition is decided at build time)."""
+        return block.name not in self.features.disabled_blocks and (
+            block.flag is None or bool(getattr(self.features, block.flag))
+        )
+
+    def _validate_requirements(self) -> None:
+        """Every enabled block must find the variable blocks it reads enabled too."""
+        enabled = {block.name for block in self.CATALOGUE if self._switched_on(block)}
+        broken = {}
+        for name in sorted(enabled):
+            for missing in sorted(self.REQUIREMENTS.get(name, frozenset()) - enabled):
+                broken.setdefault(missing, []).append(name)
+        if broken:
+            detail = "; ".join(f"variables '{var}' are off but {users} use them" for var, users in broken.items())
+            raise ValueError(
+                f"{type(self).__name__}: {detail}. Disable those blocks too, or keep the variables and "
+                f"disable only the term you mean (e.g. 'operation_cost' drops the operating cost and keeps Z)."
             )
 
     def _is_enabled(self, block: Block) -> bool:

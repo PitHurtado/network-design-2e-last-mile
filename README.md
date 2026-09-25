@@ -262,6 +262,10 @@ variante nueva: subclase de la más cercana, `NAME` (queda registrada y seleccio
 (`before=` fija su posición) y los métodos de esos bloques; para cambiar la formulación
 de un bloque existente se sobrescribe su método. Ablaciones sin clase nueva:
 `features=replace(Modelo.DEFAULT_FEATURES, disabled_blocks=frozenset({"capacity"}))`.
+Cada bloque declara qué variables usa (`USES`): apagar un bloque de variables que otro
+bloque activo necesita falla al construir el modelo con un mensaje que dice qué más apagar.
+Por ejemplo, `{"operation_cost"}` quita sólo el costo de operación y conserva Z, mientras
+`{"operation"}` (las variables Z) exige apagar también sus restricciones.
 
 Los niveles de capacidad y sus costos de instalación y operación vienen de la tabla
 `f<N>` (§3); `input_facilities.xlsx` sólo aporta ubicación y costo de sourcing de cada

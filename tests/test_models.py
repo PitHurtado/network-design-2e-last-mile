@@ -32,6 +32,22 @@ class ExtensionTests(unittest.TestCase):
             class Broken(CapacitatedSAAModel):  # pylint: disable=unused-variable
                 BLOCKS = (Block("capacity", "constr", "_constr_capacity"),)
 
+    def test_disabling_variables_still_in_use_is_explicit(self):
+        instance = type(
+            "FakeInstance",
+            (),
+            {
+                "config": type("C", (), {"is_continuous_var_x": False, "type_of_flexibility": "up_to_installed"})(),
+                "facilities": {},
+            },
+        )()
+        features = replace(FlexSAAModel.DEFAULT_FEATURES, disabled_blocks=frozenset({"operation"}))
+        with self.assertRaisesRegex(ValueError, "variables 'operation' are off but .*operation_cost"):
+            FlexSAAModel(instance, features=features)
+        # Dropping only the operating cost keeps Z and builds.
+        FlexSAAModel(instance, features=replace(FlexSAAModel.DEFAULT_FEATURES, disabled_blocks=frozenset({"operation_cost"})))
+        self.assertEqual(FlexSAAModel.REQUIREMENTS["capacity"], frozenset({"assignment", "install", "operation"}))
+
     def test_capacitated_models_require_a_capacity_table(self):
         from src.optimization.stages import RunInputs
         from src.tools.artifacts import ArtifactStore
