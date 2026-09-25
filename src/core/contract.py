@@ -13,7 +13,6 @@ from the manifest.
 import json
 from pathlib import Path
 
-from src.core import constants
 from src.core.entities import Pixel
 from src.core.inputs import get_pixels
 from src.tools.logging import get_logger
@@ -25,9 +24,13 @@ SIMULATED_SETS = ("optimization", "validation")
 DEPENDENCE_METHODS = ("independent", "spatial_joint", "historical_bootstrap")
 
 
-def scenario_id(version: str, regime: str, scenario_set: str, index: int | None = None) -> str:
-    """Stable, filename-safe identifier; never derived from filesystem ordering."""
-    base = f"{version}-{regime}-{scenario_set}"
+def scenario_id(regime: str, scenario_set: str, index: int | None = None) -> str:
+    """Stable, filename-safe identifier; never derived from filesystem ordering.
+
+    The version is deliberately not part of it: it lives in the directory and the
+    manifest, so promoting a candidate renames a directory without rewriting a file.
+    """
+    base = f"{regime}-{scenario_set}"
     return base if index is None else f"{base}-{index:03d}"
 
 
@@ -40,7 +43,7 @@ def assert_contract(stop, drop) -> None:
 
 
 class ScenarioLayout:
-    """Directory structure of one scenario version: `<root>/<regime>[/<method>]/<set>/`.
+    """Directory structure of one scenario artifact: `<root>/<regime>[/<method>]/<set>/`.
 
     A plain version holds the four purpose-specific sets per regime. A comparison
     version adds a dependence-method level and holds simulated sets only.
@@ -49,15 +52,6 @@ class ScenarioLayout:
     def __init__(self, root: Path, comparison: bool = False):
         self.root = Path(root)
         self.comparison = comparison
-
-    @classmethod
-    def generated(cls, version: str) -> "ScenarioLayout":
-        # Read at call time so the location can be redirected (tests, sandboxes).
-        return cls(constants.PATH_GENERATED_SCENARIOS / version)
-
-    @classmethod
-    def for_comparison(cls, version: str) -> "ScenarioLayout":
-        return cls(constants.PATH_COMPARISON_SCENARIOS / version, comparison=True)
 
     def set_dir(self, regime: str, scenario_set: str, method: str | None = None) -> Path:
         if self.comparison:

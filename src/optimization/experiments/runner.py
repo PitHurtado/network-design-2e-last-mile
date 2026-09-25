@@ -39,8 +39,8 @@ class ExperimentRunner:
         self.solver_overrides = dict(solver_overrides or {})
 
     @classmethod
-    def for_version(cls, version: str, solver_overrides: dict | None = None) -> "ExperimentRunner":
-        return cls(InstanceBuilder.for_version(version), solver_overrides)
+    def for_version(cls, version: str, solver_overrides: dict | None = None, store=None) -> "ExperimentRunner":
+        return cls(InstanceBuilder.for_version(version, store), solver_overrides)
 
     def build(self, spec: RunSpec):
         instance = self.builder.build(spec.instance)

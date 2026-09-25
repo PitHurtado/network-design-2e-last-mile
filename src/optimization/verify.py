@@ -1,6 +1,6 @@
 """End-to-end check: do the generated scenarios feed the CA and Gurobi unchanged?
 
-    poetry run python -m src.optimization.cli.verify_end_to_end --n 3
+    optimize verify --scenarios v1 --n 3
 
 This is the acceptance test for the scenario contract. The failure modes it targets
 are silent-to-read but fatal at solve time:
@@ -16,10 +16,7 @@ It also checks that the objective orders `low < normal < high`, which it must if
 regimes mean anything.
 """
 
-import argparse
-import sys
-
-from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
+from src.core.constants import REGIMES
 from src.optimization.instance import InstanceBuilder, InstanceSpec
 from src.optimization.models.uncapacitated import UncapacitatedSAAModel
 from src.tools.logging import get_logger
@@ -27,9 +24,9 @@ from src.tools.logging import get_logger
 logger = get_logger("VerifyEndToEnd")
 
 
-def run_regime(regime: str, n_scenarios: int, max_run_time: float) -> dict:
+def run_regime(builder: InstanceBuilder, regime: str, n_scenarios: int, max_run_time: float) -> dict:
     """Build the instance, run the CA and solve the uncapacitated model."""
-    instance = InstanceBuilder.for_version(DEFAULT_SCENARIO_VERSION).build(
+    instance = builder.build(
         InstanceSpec(
             id_instance=f"verify_{regime}",
             n_scenarios=n_scenarios,
@@ -57,17 +54,13 @@ def run_regime(regime: str, n_scenarios: int, max_run_time: float) -> dict:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--n", type=int, default=3, help="scenarios per regime (keep small: this is a smoke test)")
-    parser.add_argument("--max-run-time", type=float, default=120.0)
-    parser.add_argument("--regimes", nargs="+", choices=REGIMES, default=list(REGIMES))
-    args = parser.parse_args()
-
+def verify(builder: InstanceBuilder, n_scenarios: int = 3, max_run_time: float = 120.0, regimes=REGIMES) -> int:
+    """Solve every regime and check the objectives order; returns a process exit code."""
+    regimes = list(regimes)
     results = []
-    for regime in args.regimes:
+    for regime in regimes:
         try:
-            results.append(run_regime(regime, args.n, args.max_run_time))
+            results.append(run_regime(builder, regime, n_scenarios, max_run_time))
         except Exception as error:  # noqa: BLE001 - the point is to surface the failure
             logger.error(f"[{regime}] FAILED: {type(error).__name__}: {error}")
             raise
@@ -84,14 +77,11 @@ def main() -> None:
         print(f"\n  ATENCIÓN: régimen(es) sin resolver a optimalidad: {not_optimal}")
 
     objectives = [row["objective"] for row in results]
-    if args.regimes == list(REGIMES):
+    if regimes == list(REGIMES):
         ordered = objectives == sorted(objectives)
         print(f"\nOrden low < normal < high: {'OK' if ordered else 'FALLA'}")
         if not ordered:
             logger.error(f"Los objetivos no están ordenados por régimen: {objectives}")
-            sys.exit(1)
+            return 1
     print("El contrato de escenarios se respeta: la CA y Gurobi corren sin cambios.")
-
-
-if __name__ == "__main__":
-    main()
+    return 0

@@ -11,11 +11,12 @@ import os
 import unittest
 
 from tests.golden.producers import PRODUCERS
-from tests.golden.support import EXPECTED, Workspace
+from tests.golden.support import EXPECTED, Workspace, normalize_ids
 
 
 def _normalized(value):
-    return json.loads(json.dumps(value, sort_keys=True, default=str))
+    """Canonical JSON with scenario ids normalized, applied to both sides of a comparison."""
+    return json.loads(normalize_ids(json.dumps(value, sort_keys=True, default=str)))
 
 
 class GoldenTests(unittest.TestCase):
@@ -30,7 +31,7 @@ class GoldenTests(unittest.TestCase):
         cls.ws.close()
 
     def _check(self, name: str):
-        expected = json.loads((EXPECTED / f"{name}.json").read_text())
+        expected = _normalized(json.loads((EXPECTED / f"{name}.json").read_text()))
         self.assertEqual(_normalized(PRODUCERS[name](self.ws)), expected, f"golden {name} changed")
 
     def test_g1_fit(self):

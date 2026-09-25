@@ -36,6 +36,7 @@ class ValidationReportData:
     cv_impact: dict
     correlogram_curve: tuple[np.ndarray, np.ndarray]
     checks: list[Check]
+    params_label: str  # e.g. "p1 del 2026-09-25"
 
 
 # ── Figures ───────────────────────────────────────────────────────────────────
@@ -399,7 +400,7 @@ def render(data: ValidationReportData, output_path: Path) -> Path:
      {data.manifests[regimes[0]]['n_scenarios']} escenarios ·
      panel {len(historical)} meses (2020-2022, sin 2021-02) ·
      ρ = {rho:.2f} km · plateau = {plateau:.3f} ·
-     params v{params['version']} del {params['generated_on']}""",
+     params {data.params_label}""",
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(page("Validación de escenarios de demanda", header + "\n" + "".join(figures)))

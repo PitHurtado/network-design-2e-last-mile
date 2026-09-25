@@ -25,7 +25,7 @@ VERSION = "vG"
 
 # Scenario ids used to embed the version ("vG-normal-optimization-001"). The refactor
 # drops it (D12), so both sides are compared with the prefix removed.
-_ID_PREFIX = re.compile(rf"\b{VERSION}-(low|normal|high)-")
+_ID_PREFIX = re.compile(rf"(?<![A-Za-z0-9]){VERSION}-(low|normal|high)-")
 
 
 def normalize_ids(text: str) -> str:

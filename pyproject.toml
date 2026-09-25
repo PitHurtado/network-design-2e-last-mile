@@ -5,7 +5,12 @@ description = ""
 authors = ["phurtac <pitehrh@gmail.com>"]
 readme = "README.md"
 packages = [{include = "src"}]
-package-mode = false
+package-mode = true
+
+[tool.poetry.scripts]
+scenarios = "src.scenarios.cli:main"
+optimize = "src.optimization.cli:main"
+calibrate = "src.calibration.cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"

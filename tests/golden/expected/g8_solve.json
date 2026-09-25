@@ -105,7 +105,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/fixed_operation/normal/annual_expected/result.json",
+      "source_result": "flexibility/vG/fixed_operation/normal/annual_expected/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1192839.518,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": true,
+        "model": "flex",
+        "objective_value": 1192839.518,
+        "optimality_gap": 0.0,
+        "status": "OPTIMAL"
+      },
       "version": "vG"
     },
     {
@@ -213,7 +228,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/fixed_operation/normal/expected/result.json",
+      "source_result": "flexibility/vG/fixed_operation/normal/expected/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1205650.115,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": true,
+        "model": "flex",
+        "objective_value": 1205650.115,
+        "optimality_gap": 0.0,
+        "status": "OPTIMAL"
+      },
       "version": "vG"
     },
     {
@@ -321,7 +351,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/fixed_operation/normal/optimization/result.json",
+      "source_result": "flexibility/vG/fixed_operation/normal/optimization/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1196641.821,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": false,
+        "model": "flex",
+        "objective_value": 1197766.926,
+        "optimality_gap": 0.094,
+        "status": "16"
+      },
       "version": "vG"
     },
     {
@@ -429,7 +474,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/on_off_installed/normal/annual_expected/result.json",
+      "source_result": "flexibility/vG/on_off_installed/normal/annual_expected/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1192839.518,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": true,
+        "model": "flex",
+        "objective_value": 1192839.518,
+        "optimality_gap": 0.0,
+        "status": "OPTIMAL"
+      },
       "version": "vG"
     },
     {
@@ -537,7 +597,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/on_off_installed/normal/expected/result.json",
+      "source_result": "flexibility/vG/on_off_installed/normal/expected/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1205650.115,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": true,
+        "model": "flex",
+        "objective_value": 1205650.115,
+        "optimality_gap": 0.0,
+        "status": "OPTIMAL"
+      },
       "version": "vG"
     },
     {
@@ -645,7 +720,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/on_off_installed/normal/optimization/result.json",
+      "source_result": "flexibility/vG/on_off_installed/normal/optimization/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1195684.394,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": false,
+        "model": "flex",
+        "objective_value": 1196135.186,
+        "optimality_gap": 0.038,
+        "status": "16"
+      },
       "version": "vG"
     },
     {
@@ -753,7 +843,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/up_to_installed/normal/annual_expected/result.json",
+      "source_result": "flexibility/vG/up_to_installed/normal/annual_expected/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1192839.518,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": true,
+        "model": "flex",
+        "objective_value": 1192839.518,
+        "optimality_gap": 0.0,
+        "status": "OPTIMAL"
+      },
       "version": "vG"
     },
     {
@@ -861,7 +966,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/up_to_installed/normal/expected/result.json",
+      "source_result": "flexibility/vG/up_to_installed/normal/expected/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1205242.115,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": true,
+        "model": "flex",
+        "objective_value": 1205242.115,
+        "optimality_gap": 0.0,
+        "status": "OPTIMAL"
+      },
       "version": "vG"
     },
     {
@@ -969,7 +1089,22 @@
         "optimality_gap": 0.0,
         "status": "OPTIMAL"
       },
-      "source_result": "<WS>/results/flexibility/vG/up_to_installed/normal/optimization/result.json",
+      "source_result": "flexibility/vG/up_to_installed/normal/optimization/result.json",
+      "source_run": "rG",
+      "source_solve": {
+        "best_bound_value": 1195080.243,
+        "features": {
+          "capacity": true,
+          "disabled_blocks": [],
+          "flex_operation": true,
+          "install_levels": true
+        },
+        "is_optimal": false,
+        "model": "flex",
+        "objective_value": 1195791.159,
+        "optimality_gap": 0.059,
+        "status": "16"
+      },
       "version": "vG"
     }
   ],

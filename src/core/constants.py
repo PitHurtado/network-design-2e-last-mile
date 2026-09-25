@@ -17,16 +17,11 @@ PATH_DATA_FACILITY = DATA_DIR / "raw_facility/input_facilities.xlsx"
 PATH_DATA_DISTANCES_FACILITY_DELIVERY_ZONE = DATA_DIR / "raw_distance/input_matrix_distance_facilities_pixels.xlsx"
 PATH_DATA_DISTANCES_FACILITIES = DATA_DIR / "raw_distance/input_matrix_distance_dc_facilities.xlsx"
 
-# Scenario artifacts
-PATH_ROOT_SCENARIO = DATA_DIR / "scenarios"
-PATH_SHAPE_PARAMS = PATH_ROOT_SCENARIO / "shape_params.json"
 # The monthly panel is ~5.8k rows (161 pixels x 36 months), so CSV keeps it
-# readable and avoids pulling in a parquet engine.
-PATH_PANEL_MONTHLY = PATH_ROOT_SCENARIO / "panel_monthly.csv"
-PATH_GENERATED_SCENARIOS = PATH_ROOT_SCENARIO / "generated"
-PATH_COMPARISON_SCENARIOS = PATH_ROOT_SCENARIO / "comparison"
-DEFAULT_SCENARIO_VERSION = "v3"
-
+# readable and avoids pulling in a parquet engine. It is a cache derived from the raw
+# demand file; each params artifact keeps its own copy of the panel it was fitted on.
+PATH_PANEL_MONTHLY = DATA_DIR / "interim" / "panel_monthly.csv"
+PATH_PANEL_SOURCE = DATA_DIR / "interim" / "panel_source.json"
 
 # ── Pixel grid geometry ───────────────────────────────────────────────────────
 # grid_pixels.geojson is a perfectly regular lon/lat grid of 16 columns x 19 rows

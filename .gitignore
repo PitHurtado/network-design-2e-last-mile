@@ -4,17 +4,31 @@ OLD/
 OLD.zip
 docs/
 
-# Salidas de modelos y reportes generados
-results/
+# Salidas de modelos y reportes: sólo se versiona la identidad de las corridas oficiales.
+results/*
+!results/runs/
+results/runs/*/*
+!results/runs/*/manifest.json
+!results/runs/*/validation.json
 
-# Data cruda pesada y artefactos derivados.
-# Nota: `data/` NO se ignora en bloque. Los parámetros de forma ajustados y su
-# documentación son la entrada reproducible del estudio y van versionados; los raws
-# chicos también. Solo se excluyen el CSV de 192 MB y lo que se regenera desde ellos.
+# Data: se versiona lo que identifica cada versión oficial (manifests, validación,
+# parámetros ajustados, raws chicos); no lo que pesa o se regenera desde ellos.
+#   data/params/pN/       shape_params.json + manifest + validation (el panel copiado no)
+#   data/scenarios/vN/    manifests + validation (los scenario_*.json no)
+#   data/sandbox/         candidatas descartables
+#   data/_archive/        versiones previas al esquema de versionado
 data/raw_demand/
+data/interim/
+data/sandbox/
+data/_archive/
+data/params/*/panel_monthly.csv
+data/params/*/reports/
+data/scenarios/*/**/scenario_*.json
+data/scenarios/*/reports/
+# Layout anterior (hasta archivarlo)
 data/scenarios/generated/
-data/scenarios/panel_monthly.csv
 data/scenarios/comparison/
+data/scenarios/panel_monthly.csv
 
 # Goldens: pesados o derivados de la data cruda (sólo locales); expected/ y el
 # shape_params de fixture sí se versionan.

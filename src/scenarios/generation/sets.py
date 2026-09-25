@@ -31,7 +31,6 @@ class SetSpec:
     scenario_set: str
     n_scenarios: int
     multiplier: float
-    version: str
     seed_base: int = SEED_BASE
     method: str | None = None  # comparison versions only
 
@@ -58,27 +57,26 @@ class ScenarioSetWriter:
         totals, ids = [], []
         if spec.scenario_set in {"optimization", "validation"}:
             for index, seed in enumerate(set_seeds(spec.seed_base, spec.scenario_set, spec.n_scenarios), start=1):
-                id_scenario = scenario_id(spec.version, spec.regime, spec.scenario_set, index)
+                id_scenario = scenario_id(spec.regime, spec.scenario_set, index)
                 stop, drop = generator.draw(rng_for(seed), spec.multiplier)
                 totals.append(float((stop * drop).sum() / N_PERIODS))
                 self._write_scenario(spec, generator.to_payload(stop, drop, id_scenario, "simulated"), id_scenario)
                 ids.append(id_scenario)
         elif spec.scenario_set == "expected":
-            id_scenario = scenario_id(spec.version, spec.regime, spec.scenario_set)
+            id_scenario = scenario_id(spec.regime, spec.scenario_set)
             stop, drop = generator.draw(np.random.default_rng(0), spec.multiplier, shocks=MeanShocks())
             self._write_scenario(spec, generator.to_payload(stop, drop, id_scenario, "expected"), id_scenario)
             ids.append(id_scenario)
             totals.append(float((stop * drop).sum() / N_PERIODS))
         else:
-            id_scenario = scenario_id(spec.version, spec.regime, spec.scenario_set)
+            id_scenario = scenario_id(spec.regime, spec.scenario_set)
             payload = generator.annual_expected_payload(id_scenario, spec.multiplier)
             self._write_scenario(spec, payload, id_scenario)
             ids.append(id_scenario)
             totals.append(float(sum(pixel["demand"][0] for pixel in payload["pixels"])))
 
         summary = {
-            "schema_version": 1,
-            "version": spec.version,
+            "schema_version": 2,
             "regime": spec.regime,
             "scenario_set": spec.scenario_set,
             "scenario_ids": ids,
@@ -98,7 +96,7 @@ class ScenarioSetWriter:
             "optimization_compatible": spec.scenario_set in SCENARIO_SETS,
         }
         logger.info(
-            f"[{spec.version}/{spec.regime}/{spec.scenario_set}] {len(ids)} scenarios | mean total "
+            f"[{spec.regime}/{spec.scenario_set}] {len(ids)} scenarios | mean total "
             f"{summary['period_total_mean']:,.0f} | stop floor hit {summary['stop_floor_share'] * 100:.3f}% of cells"
         )
         return summary
@@ -115,15 +113,14 @@ class ScenarioSetWriter:
         generator.cells_drawn = 0
         totals, ids = [], []
         for index, seed in enumerate(set_seeds(spec.seed_base, "validation", spec.n_scenarios), start=1):
-            id_scenario = scenario_id(spec.version, spec.regime, "validation", index)
+            id_scenario = scenario_id(spec.regime, "validation", index)
             stop, drop = generator.draw(rng_for(seed), spec.multiplier)
             totals.append(float((stop * drop).sum() / N_PERIODS))
             self._write_scenario(spec, generator.to_payload(stop, drop, id_scenario, "simulated"), id_scenario)
             ids.append(id_scenario)
 
         return {
-            "schema_version": 1,
-            "version": spec.version,
+            "schema_version": 2,
             "regime": spec.regime,
             "scenario_set": "validation",
             "method": spec.method,

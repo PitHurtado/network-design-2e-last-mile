@@ -7,7 +7,6 @@ history does not need to be refit.
 """
 
 from dataclasses import dataclass
-from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -104,7 +103,6 @@ class ParamsFitter:
 
         params = {
             "version": SHAPE_PARAMS_VERSION,
-            "generated_on": date.today().isoformat(),
             "n_periods": N_PERIODS,
             "base_year": fitted["base_year"],
             "pixels": pixels,
@@ -168,7 +166,7 @@ class ParamsFitter:
         seeds = np.random.SeedSequence([self.seed_base, 100]).spawn(validation_n)
         regimes = RegimeCalibrator(generator, seeds).calibrate_all()
         raw["version"] = max(int(raw.get("version", 0)), 3)
-        raw["generated_on"] = date.today().isoformat()
+        raw.pop("generated_on", None)
         raw["seed_base"] = self.seed_base
         raw["calibrated_n_scenarios"] = validation_n
         raw["regimes"] = self._regimes_block(regimes)

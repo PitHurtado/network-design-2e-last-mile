@@ -15,13 +15,12 @@ def evaluation_frames(payloads: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame,
     rows, scenarios, installations = [], [], []
     for data in payloads:
         key = {name: data[name] for name in ("version", "regime", "flexibility", "solution_case")}
-        source = json.loads(Path(data["source_result"]).read_text())
         rows.append(
             {
                 **key,
                 **data["means"],
                 **{f"evaluation_{k}": v for k, v in data["solve"].items()},
-                **{f"source_{k}": v for k, v in source["solve"].items()},
+                **{f"source_{k}": v for k, v in data["source_solve"].items()},
             }
         )
         scenarios.extend([{**key, **row} for row in data["scenario_costs"]])

@@ -8,6 +8,9 @@ import json
 import shutil
 from pathlib import Path
 
+import pandas as pd
+
+from src.core.constants import SEED_BASE  # noqa: E402
 from tests.golden.support import (
     FIXTURES,
     VERSION,
@@ -87,33 +90,22 @@ def _manifests(root: Path) -> dict:
 
 
 def g1_fit(ws: Workspace) -> dict:
-    out = ws.path("g1") / "shape_params.json"
-    with patched(
-        {
-            "src.scenarios.cli.fit_params.PATH_SHAPE_PARAMS": out,
-            "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
-            "sys.argv": ["fit_params", "--n", "5"],
-        }
-    ):
-        from src.scenarios.cli import fit_params
+    from src.scenarios.stages import FitConfig, ParamsStage
 
-        fit_params.main()
-    return _params_summary(json.loads(out.read_text()), "g1")
+    out = ws.path("g1")
+    ParamsStage.produce_fit(out, FitConfig(n=5), PANEL, None)
+    return _params_summary(json.loads((out / "shape_params.json").read_text()), "g1")
 
 
 def g2_recalibrate(ws: Workspace) -> dict:
-    out = ws.path("g2") / "shape_params.json"
-    shutil.copy(PARAMS, out)
-    with patched(
-        {
-            "src.scenarios.cli.recalibrate_regimes.PATH_SHAPE_PARAMS": out,
-            "sys.argv": ["recalibrate_regimes", "--validation-n", "5"],
-        }
-    ):
-        from src.scenarios.cli import recalibrate_regimes
+    from src.scenarios.stages import ParamsStage
+    from src.tools.artifacts import Artifact, ArtifactKind
 
-        recalibrate_regimes.main()
-    return _params_summary(json.loads(out.read_text()), "g2")
+    parent = ws.path("g2-parent")
+    shutil.copy(PARAMS, parent / "shape_params.json")
+    out = ws.path("g2")
+    ParamsStage.produce_recalibrate(out, Artifact(ArtifactKind.PARAMS, "p0", parent), validation_n=5, seed_base=SEED_BASE)
+    return _params_summary(json.loads((out / "shape_params.json").read_text()), "g2")
 
 
 # ── G3 / G4: generation ───────────────────────────────────────────────────────
@@ -123,17 +115,11 @@ def generated_root(ws: Workspace) -> Path:
     """Scenario sets for every regime (n=3), generated once per session."""
 
     def build() -> Path:
-        root = ws.path("scenarios")
-        with patched(
-            {
-                "src.scenarios.cli.generate.PATH_SHAPE_PARAMS": PARAMS,
-                "src.core.constants.PATH_GENERATED_SCENARIOS": root,
-                "sys.argv": ["generate", "--all", "--version", VERSION, "--optimization-n", "3", "--validation-n", "3"],
-            }
-        ):
-            from src.scenarios.cli import generate
+        from src.scenarios.params import ShapeParams
+        from src.scenarios.stages import GenerateConfig, ScenarioStage
 
-            generate.main()
+        root = ws.path("scenarios", VERSION)
+        ScenarioStage.produce(root, ShapeParams.load(PARAMS), GenerateConfig("pG", REGIMES, optimization_n=3, validation_n=3))
         return root
 
     return ws.once("generated", build)
@@ -143,33 +129,23 @@ def comparison_root(ws: Workspace) -> Path:
     """Paired comparison sets for `normal`, three methods, n=3."""
 
     def build() -> Path:
-        from unittest import mock
+        from src.scenarios.params import ShapeParams
+        from src.scenarios.stages import CompareConfig, ComparisonStage
 
-        root = ws.path("comparison")
-        with patched(
-            {
-                "src.scenarios.cli.compare.PATH_SHAPE_PARAMS": PARAMS,
-                "src.scenarios.cli.compare.build_comparison_report": mock.MagicMock(return_value=Path("skipped")),
-                "src.core.constants.PATH_COMPARISON_SCENARIOS": root,
-                "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
-                "sys.argv": ["compare", "--regime", "normal", "--version", VERSION, "--n", "3"],
-            }
-        ):
-            from src.scenarios.cli import compare
-
-            compare.main()
+        root = ws.path("comparison", VERSION)
+        ComparisonStage.produce(root, ShapeParams.load(PARAMS), pd.read_csv(PANEL), CompareConfig("pG", ("normal",), n=3))
         return root
 
     return ws.once("comparison", build)
 
 
 def g3_generate(ws: Workspace) -> dict:
-    root = generated_root(ws) / VERSION
+    root = generated_root(ws)
     return {"files": tree_digest(root), "manifests": _manifests(root)}
 
 
 def g4_compare(ws: Workspace) -> dict:
-    root = comparison_root(ws) / VERSION
+    root = comparison_root(ws)
     return {"files": tree_digest(root), "manifests": _manifests(root)}
 
 
@@ -220,39 +196,27 @@ def g6_reports(ws: Workspace) -> dict:
     out_dir = ws.path("reports")
     results = {}
 
-    scenario_patches = {
-        "src.scenarios.reports.PATH_SHAPE_PARAMS": PARAMS,
-        "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
-        "src.core.constants.PATH_GENERATED_SCENARIOS": generated,
-    }
-    with patched(scenario_patches), figure_capture() as figures:
-        from src.scenarios.reports import build_validation_report
-        from src.scenarios.validation.params import aggregate_cv_impact
+    from src.core.contract import ScenarioLayout
+    from src.scenarios.params import ShapeParams
+    from src.scenarios.reports import build_comparison_report, build_explore_report, build_validation_report
+    from src.scenarios.validation.params import aggregate_cv_impact
 
-        path, n_failed = build_validation_report(list(ALL_REGIMES), output_path=out_dir / "validation.html", version=VERSION)
+    params, panel = ShapeParams.load(PARAMS), pd.read_csv(PANEL)
+    with figure_capture() as figures:
+        path, n_failed = build_validation_report(
+            ScenarioLayout(generated), params, panel, out_dir / "validation.html", ALL_REGIMES
+        )
         results["validation"] = {**_report_digest("validation", path, list(figures)), "n_failed": n_failed}
         results["aggregate_cv"] = aggregate_cv_impact(_load_params())
 
-    with patched(scenario_patches), figure_capture() as figures:
-        from src.scenarios.reports import build_explore_report
-
-        path = build_explore_report(list(ALL_REGIMES), output_path=out_dir / "explore.html", version=VERSION)
+    with figure_capture() as figures:
+        path = build_explore_report(ScenarioLayout(generated), out_dir / "explore.html", ALL_REGIMES)
         results["explore"] = _report_digest("explore", path, list(figures))
 
-    with (
-        patched(
-            {
-                "src.scenarios.reports.PATH_SHAPE_PARAMS": PARAMS,
-                "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
-                "src.core.constants.PATH_COMPARISON_SCENARIOS": comparison,
-            }
-        ),
-        figure_capture() as figures,
-    ):
-        from src.scenarios.reports import build_comparison_report
-
+    with figure_capture() as figures:
         cmp_dir = ws.path("reports", "comparison")
-        path = build_comparison_report("normal", version=VERSION, output_path=cmp_dir / "comparison.html")
+        layout = ScenarioLayout(comparison, comparison=True)
+        path = build_comparison_report(layout, params, panel, "normal", cmp_dir, label=VERSION)
         extra = sorted(p for p in cmp_dir.iterdir() if p.suffix in (".csv", ".json"))
         results["comparison"] = _report_digest("comparison", path, list(figures), extra)
 
@@ -263,14 +227,16 @@ def g6_reports(ws: Workspace) -> dict:
         path = build_flex(FIXTURE_RESULTS_VERSION, output_path=flex_dir / "flex.html", root=FIXTURE_RESULTS / "flexibility")
         results["flexibility"] = _report_digest("flexibility", path, list(figures), [flex_dir / "summary.json"])
 
-    with patched({"src.optimization.reports.RESULTS_DIR": FIXTURE_RESULTS}):
+    if True:  # noqa: SIM108 - one block per report, like the ones above
         from src.optimization.reports import build_evaluation_preview as build_partial_preview
         from src.optimization.reports import build_evaluation_report as build_vss
 
         root = FIXTURE_RESULTS / "flexibility_evaluation"
         with figure_capture() as figures:
             vss_dir = ws.path("reports", "vss")
-            path = build_vss(FIXTURE_RESULTS_VERSION, output_path=vss_dir / "vss.html", root=root)
+            path = build_vss(
+                FIXTURE_RESULTS_VERSION, vss_dir / "vss.html", root, FIXTURE_RESULTS / "flexibility_validation_benchmark"
+            )
             summary = vss_dir / "vss_summary.json"
             summary.write_text(ws.relativize(summary.read_text()))
             results["vss"] = _report_digest("vss", path, list(figures), [summary])
@@ -324,18 +290,18 @@ INSTANCE_CASES = {
 def build_instance(
     ws: Workspace, regime: str = "normal", continuous_x: bool = False, flexibility: str = "up_to_installed", **case
 ):
+    from src.core.contract import ScenarioLayout
     from src.optimization.instance import InstanceBuilder, InstanceSpec
 
-    with patched({"src.core.constants.PATH_GENERATED_SCENARIOS": generated_root(ws)}):
-        spec = InstanceSpec(
-            id_instance="golden",
-            n_scenarios=case.pop("N"),
-            regime=regime,
-            is_continuous_var_x=continuous_x,
-            type_of_flexibility=flexibility,
-            **case,
-        )
-        return InstanceBuilder.for_version(VERSION).build(spec)
+    spec = InstanceSpec(
+        id_instance="golden",
+        n_scenarios=case.pop("N"),
+        regime=regime,
+        is_continuous_var_x=continuous_x,
+        type_of_flexibility=flexibility,
+        **case,
+    )
+    return InstanceBuilder(ScenarioLayout(generated_root(ws)), version=VERSION).build(spec)
 
 
 def g7_ca(ws: Workspace) -> dict:
@@ -347,26 +313,28 @@ def g7_ca(ws: Workspace) -> dict:
 
 def _clean_payload(payload: dict, ws: Workspace) -> dict:
     payload = json.loads(normalize_ids(ws.relativize(json.dumps(payload))))
-    if isinstance(payload.get("solve"), dict):
-        payload["solve"].pop("actual_run_time", None)
+    for key in ("solve", "source_solve"):
+        if isinstance(payload.get(key), dict):
+            payload[key].pop("actual_run_time", None)
     return payload
 
 
 def g8_solve(ws: Workspace) -> dict:
+    from src.core.contract import ScenarioLayout
     from src.optimization.experiments import flexibility as flexibility_module
-    from src.optimization.experiments.flexibility_evaluation import SOLUTION_CASES, evaluate_experiment
+    from src.optimization.experiments.flexibility_evaluation import SOLUTION_CASES, SourceRun, evaluate_experiment
     from src.optimization.experiments.runner import ExperimentRunner
+    from src.optimization.instance import InstanceBuilder
 
     cases = {**flexibility_module.CASES, "optimization": {**flexibility_module.CASES["optimization"], "n_scenarios": 2}}
     results_root = ws.path("results")
     with patched(
         {
-            "src.core.constants.PATH_GENERATED_SCENARIOS": generated_root(ws),
             "src.optimization.experiments.flexibility.CASES": cases,
             "src.optimization.experiments.flexibility_evaluation.VALIDATION_SCENARIOS": 3,
         }
     ):
-        runner = ExperimentRunner.for_version(VERSION, solver_overrides=SOLVER)
+        runner = ExperimentRunner(InstanceBuilder(ScenarioLayout(generated_root(ws)), version=VERSION), solver_overrides=SOLVER)
         runs = flexibility_module.run_experiment(
             VERSION,
             ["normal"],
@@ -383,7 +351,8 @@ def g8_solve(ws: Workspace) -> dict:
             list(FLEXIBILITIES),
             list(SOLUTION_CASES),
             time_limit=600.0,
-            results_root=results_root,
+            source=SourceRun("rG", results_root),
+            output_root=results_root / "flexibility_evaluation",
             runner=runner,
         )
     out = {"runs": [_clean_payload(run, ws) for run in runs]}

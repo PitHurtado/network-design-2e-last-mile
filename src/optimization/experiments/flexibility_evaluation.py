@@ -6,9 +6,9 @@ problem, so two cases that chose the same Y share one solve.
 """
 
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 
-from src.core.constants import RESULTS_DIR
 from src.optimization.experiments.flexibility import RESULT_FILE
 from src.optimization.experiments.runner import ExperimentRunner, RunSpec
 from src.optimization.experiments.store import ResultStore
@@ -40,33 +40,53 @@ def _matching_evaluation(store: ResultStore, output_path: Path, fixed_installati
     return None
 
 
+@dataclass(frozen=True)
+class SourceRun:
+    """The flexibility run whose installation decisions are evaluated."""
+
+    run_id: str
+    run_dir: Path
+
+    @property
+    def store(self) -> ResultStore:
+        return ResultStore(self.run_dir / "flexibility", RESULT_FILE)
+
+
+def _source_fields(source: SourceRun, source_path: Path) -> dict:
+    """Where the fixed Y came from: the source run, the leaf within it, and its solve record."""
+    return {
+        "source_run": source.run_id,
+        "source_result": source_path.relative_to(source.run_dir).as_posix(),
+        "source_solve": source.store.read(source_path)["solve"],
+    }
+
+
 def evaluate_one(
     version: str,
     regime: str,
     flexibility: str,
     solution_case: str,
     time_limit: float,
-    source_root: Path | None = None,
-    output_root: Path | None = None,
+    source: SourceRun,
+    output_root: Path,
     overwrite: bool = False,
     runner: ExperimentRunner | None = None,
 ) -> dict:
     """Fix a saved Y and optimize recourse over the validation scenarios."""
     if solution_case not in SOLUTION_CASES:
         raise ValueError(f"Unknown source solution case: {solution_case}")
-    sources = ResultStore(source_root or (RESULTS_DIR / "flexibility"), RESULT_FILE)
-    store = ResultStore(output_root or (RESULTS_DIR / "flexibility_evaluation"), EVALUATION_FILE)
+    store = ResultStore(output_root, EVALUATION_FILE)
     runner = runner or ExperimentRunner.for_version(version)
     output_path = store.leaf_path(version, flexibility, regime, solution_case)
     if output_path.exists() and not overwrite:
         raise FileExistsError(f"{output_path} exists; use --overwrite or another version.")
 
-    source_path = sources.leaf_path(version, flexibility, regime, solution_case)
-    fixed_installation = _fixed_installation(sources.read(source_path))
+    source_path = source.store.leaf_path(version, flexibility, regime, solution_case)
+    fixed_installation = _fixed_installation(source.store.read(source_path))
     matching = _matching_evaluation(store, output_path, fixed_installation)
     if matching is not None:
         matching["solution_case"] = solution_case
-        matching["source_result"] = str(source_path)
+        matching.update(_source_fields(source, source_path))
         store.write(output_path, matching, overwrite=True)
         return matching
 
@@ -97,7 +117,7 @@ def evaluate_one(
         "regime": regime,
         "flexibility": flexibility,
         "solution_case": solution_case,
-        "source_result": str(source_path),
+        **_source_fields(source, source_path),
         "evaluation_scenario_set": "validation",
         "evaluation_scenario_ids": instance.scenarios_ids,
         "assignment_variables": "binary",
@@ -114,22 +134,28 @@ def evaluate_one(
 
 
 def evaluate_experiment(
-    version, regimes, flexibilities, solution_cases, time_limit, overwrite=False, results_root: Path | None = None, runner=None
+    version,
+    regimes,
+    flexibilities,
+    solution_cases,
+    time_limit,
+    source: SourceRun,
+    output_root: Path,
+    overwrite=False,
+    runner=None,
 ):
-    """Evaluate every saved Y, reusing an exact evaluation when two cases chose the same Y.
+    """Evaluate every saved Y of `source`, reusing an exact evaluation when two cases chose the same Y.
 
     The duplicated leaves are still persisted independently, retaining their source label.
     """
-    results_root = results_root or RESULTS_DIR
-    sources = ResultStore(results_root / "flexibility", RESULT_FILE)
-    store = ResultStore(results_root / "flexibility_evaluation", EVALUATION_FILE)
+    store = ResultStore(output_root, EVALUATION_FILE)
     runner = runner or ExperimentRunner.for_version(version)
     cache, results = {}, []
     for flexibility in flexibilities:
         for regime in regimes:
             for solution_case in solution_cases:
-                source_path = sources.leaf_path(version, flexibility, regime, solution_case)
-                fixed = _fixed_installation(sources.read(source_path))
+                source_path = source.store.leaf_path(version, flexibility, regime, solution_case)
+                fixed = _fixed_installation(source.store.read(source_path))
                 key = (flexibility, regime, tuple(sorted(fixed.items())))
                 if key not in cache:
                     output = evaluate_one(
@@ -138,8 +164,8 @@ def evaluate_experiment(
                         flexibility,
                         solution_case,
                         time_limit,
-                        source_root=sources.root,
-                        output_root=store.root,
+                        source=source,
+                        output_root=output_root,
                         overwrite=overwrite,
                         runner=runner,
                     )
@@ -150,7 +176,7 @@ def evaluate_experiment(
                         raise FileExistsError(f"{output_path} exists; use --overwrite or another version.")
                     output = deepcopy(cache[key])
                     output["solution_case"] = solution_case
-                    output["source_result"] = str(source_path)
+                    output.update(_source_fields(source, source_path))
                     store.write(output_path, output, overwrite=True)
                 results.append(output)
     return results

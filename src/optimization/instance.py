@@ -15,6 +15,7 @@ from src.core.entities import Facility, Vehicle
 from src.core.inputs import get_facilities, get_vehicles
 from src.optimization.routing.continuous_approximation import ContinuousApproximation
 from src.optimization.scenario import Scenario
+from src.tools.artifacts import ArtifactKind, ArtifactStore
 from src.tools.logging import get_logger
 
 logger = get_logger("Instance")
@@ -128,8 +129,10 @@ class InstanceBuilder:
         self.routing = routing
 
     @classmethod
-    def for_version(cls, version: str) -> "InstanceBuilder":
-        return cls(ScenarioLayout.generated(version), version=version)
+    def for_version(cls, version: str, store: ArtifactStore | None = None) -> "InstanceBuilder":
+        """A builder over scenario version `version` (`v1`, a `cv-` candidate, or `latest`)."""
+        artifact = (store or ArtifactStore()).resolve(version, ArtifactKind.SCENARIOS)
+        return cls(ScenarioLayout(artifact.path), version=artifact.id)
 
     def build(self, spec: InstanceSpec) -> Instance:
         vehicles = get_vehicles()

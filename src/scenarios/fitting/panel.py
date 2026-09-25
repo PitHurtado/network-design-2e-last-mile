@@ -12,12 +12,23 @@ quantities the scenario generator needs: active customers (`stop`), items, and
 items per visit (`drop`).
 """
 
+import time
+
 import numpy as np
 import pandas as pd
 
-from src.core.constants import EXCLUDED_YEAR_MONTHS, EXPECTED_FANOUT_SHARE, PATH_PANEL_MONTHLY, PATH_RAW_DEMAND
+from src.core.constants import (
+    EXCLUDED_YEAR_MONTHS,
+    EXPECTED_FANOUT_SHARE,
+    PATH_CUSTOMER_PIXEL_LAYER,
+    PATH_PANEL_MONTHLY,
+    PATH_PANEL_SOURCE,
+    PATH_RAW_DEMAND,
+)
 from src.scenarios.crosswalk import assign_customers, load_manual_crosswalk
+from src.tools.io import write_json
 from src.tools.logging import get_logger
+from src.tools.manifest import raw_input
 
 logger = get_logger("DemandPanel")
 
@@ -144,9 +155,16 @@ def build_panel(events: pd.DataFrame | None = None) -> pd.DataFrame:
 
 
 def save_panel(panel: pd.DataFrame) -> None:
-    """Write the panel cache."""
+    """Write the panel cache, with `panel_source.json` recording the raw files it was built from."""
     PATH_PANEL_MONTHLY.parent.mkdir(parents=True, exist_ok=True)
     panel.to_csv(PATH_PANEL_MONTHLY, index=False)
+    write_json(
+        PATH_PANEL_SOURCE,
+        {
+            "built_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "raw": [raw_input(PATH_RAW_DEMAND), raw_input(PATH_CUSTOMER_PIXEL_LAYER)],
+        },
+    )
     logger.info(f"Panel written to {PATH_PANEL_MONTHLY}")
 
 
