@@ -11,8 +11,10 @@ and a small table, never a file dump.
 
 Where they live:
 - `results/runs/r<N>/` — official runs; `results/sandbox/runs/cr-*/` — candidates. Each
-  run has a `manifest.json` (scenario version, solver settings, one entry per leaf with
-  its path, status and `is_optimal`) — read that first instead of globbing.
+  run has a `manifest.json` (model, scenario version, facilities table `fN`, solver
+  settings, one entry per leaf with its path, status and `is_optimal`) — read that first
+  instead of globbing. Satellite levels and costs of a run are in
+  `data/facilities/<fN>/capacity.json`, not in `input_facilities.xlsx`.
   Leaves: `flexibility/<v>/<flex>/<regime>/<case>/result.json`,
   `flexibility_evaluation/<v>/<flex>/<regime>/<case>/evaluation.json` (with
   `source_run` / `source_result` / `source_solve`),

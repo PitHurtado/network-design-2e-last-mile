@@ -10,8 +10,9 @@ Continuous Approximation. Research code for a paper.
 
 Branch `feature/refactor-and-cleaning`: the OOP refactor is done. `src/` is six packages
 with a one-way dependency graph, every artifact is versioned (candidate → validate →
-promote), and golden tests pin the numbers. Official versions today: params `p1`,
-scenarios `v1` (value-identical to the pre-refactor `shape_params` v3 / scenarios `v3`).
+promote), and golden tests pin the numbers. Official versions today: params `p1`;
+scenarios `v1` (value-identical to the pre-refactor `shape_params` v3 / scenarios `v3`)
+and `v2` (= `v1` + the `capacity` set); satellite capacity table `f1` (from `v2`).
 No official optimization run exists yet (`r1` is pending).
 
 ```
@@ -28,9 +29,10 @@ tools ← core ← { scenarios , optimization ← calibration }      visualizati
   `ScenarioSetWriter`), `validation/` (round-trip, contract checks, report metrics),
   `params.py` (`ShapeParams`), `reports.py` (builders), `stages.py`, `cli.py`.
 - `optimization/` — `instance.py` (`InstanceSpec`, `InstanceBuilder`, `Instance`),
-  `routing/` (CA), `models/` (block registry), `experiments/` (`ExperimentRunner`,
+  `routing/` (CA), `models/` (block registry), `capacity/` (satellite capacity analysis:
+  tariffs, `LevelMethod` strategies, `CapacityTable`), `experiments/` (`ExperimentRunner`,
   `ResultStore`, flexibility / evaluation / benchmark), `metrics/`, `reports.py`,
-  `stages.py` (`RunStage`), `verify.py`, `cli.py`.
+  `stages.py` (`FacilityStage`, `RunStage`), `verify.py`, `cli.py`.
 - `calibration/` — SAA sample-size study: interfaces only, every method raises
   `NotImplementedError`.
 - `visualization/` — `html.py` toolkit, `components/labels.py`, one renderer per report
@@ -68,7 +70,7 @@ poetry run python -m src.calibration <subcommand>   # == `calibrate <subcommand>
 scenarios panel build                 # raw events -> data/interim/panel_monthly.csv (+ panel_source.json)
 scenarios params fit --n 100          # -> cp-* candidate (fit + regime calibration on 100 validation streams)
 scenarios params recalibrate --from p1
-scenarios generate --params p1        # -> cv-*: optimization 30, validation 100, expected, annual_expected
+scenarios generate --params p1        # -> cv-*: optimization 30, validation 100, capacity 100, expected, annual_expected
 scenarios compare --params p1 --regimes normal --n 100   # -> cc-* (exploratory, never promoted)
 scenarios explore v1
 scenarios validate <ref> | promote <ref> | list | show <ref>
@@ -77,12 +79,13 @@ scenarios validate <ref> | promote <ref> | list | show <ref>
 ### Optimization
 
 ```bash
-optimize flexibility --scenarios v1 [--model flex|capacitated|uncapacitated] [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
-optimize evaluate --run r1            # fixed-Y recourse on validation
-optimize benchmark --scenarios v1     # RP_100 for the theoretical VSS
-optimize report <run> [--benchmark <run>]
-optimize verify --scenarios v1 --n 3  # CA + Gurobi smoke test
-optimize validate <run> | promote <run> | list | show <run>
+optimize capacity analyze --scenarios v2 [--levels percentiles-a|percentiles-b|fixed-grid]   # -> cf-*
+optimize flexibility --scenarios v2 --facilities f1 [--model flex|capacitated|uncapacitated] [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
+optimize evaluate --run r1            # fixed-Y recourse on validation (with r1's facilities table)
+optimize benchmark --scenarios v2 --facilities f1   # RP_100 for the theoretical VSS
+optimize report <run|fN> [--benchmark <run>]
+optimize verify --scenarios v2 --n 3  # CA + Gurobi smoke test
+optimize validate <ref> | promote <ref> | list | show <ref>    # ref: cf-*/fN or cr-*/rN
 ```
 
 ### Tests
@@ -95,7 +98,8 @@ poetry run python -m tests.golden.capture <name>          # re-capture ONE golde
 
 - `tests/golden/`: G1 fit, G2 recalibrate, G3 generate, G4 comparison, G5 spatial,
   G6 report figures + visible text + CSVs, G7 CA costs/fleet, G8 solves (Threads=1,
-  Seed=0, WorkLimit — deterministic). Producers call the API; `expected/` pins outputs.
+  Seed=0, WorkLimit — deterministic), G9 capacity analysis. Producers call the API;
+  `expected/` pins outputs.
   Re-capturing is a deliberate act: say so in the commit, with the before/after.
 - Fixtures: `tests/golden/fixtures/shape_params.json` is tracked; the panel copy and
   `fixtures/results/` (archived v3 runs, for the report goldens) are local only.
@@ -123,8 +127,9 @@ only `promote` creates an official, immutable version.
 ```
 data/params/p<N>/         shape_params.json, panel_monthly.csv (copy, gitignored), manifest.json, validation.json
 data/scenarios/v<N>/      <regime>/<set>/{scenario_*.json (gitignored), manifest.json}, manifest.json, validation.json, reports/
+data/facilities/f<N>/     capacity.json, peak_fleet.csv, assignment.json, manifest.json, validation.json, reports/
 results/runs/r<N>/        <experiment>/<v>/<flex>/<regime>[/<case>]/<leaf>.json, manifest.json, validation.json, reports/
-data/sandbox/{params,scenarios,comparisons}/  results/sandbox/runs/   candidates: cp-/cv-/cc-/cr-<timestamp>
+data/sandbox/{params,scenarios,facilities,comparisons}/  results/sandbox/runs/   candidates: cp-/cv-/cf-/cc-/cr-<timestamp>
 data/_archive/2026-09-25/  results/_archive/2026-09-25/                everything before versioning (v2, v3, vcompare*)
 ```
 
@@ -134,7 +139,9 @@ data/_archive/2026-09-25/  results/_archive/2026-09-25/                everythin
   can be regenerated inside an official version.
 - `promote` refuses unless: validated and passed; content unchanged since; parents
   official and unchanged; produced from a clean tree at the current HEAD and the tree is
-  still clean; and (params, scenarios) re-executing the command is byte-identical.
+  still clean; and (params, scenarios, facilities) re-executing the command is
+  byte-identical. Committing anything after generating a candidate moves HEAD, so the
+  candidate must be regenerated before it can be promoted.
   Runs are not re-executed (time-limited MIPs are not deterministic); a leaf whose key
   (scenarios + model + solver + policy + regime + case) exists in an official run is
   copied instead of re-solved.
@@ -196,6 +203,14 @@ it before touching `src/scenarios/`.
 - **`stop >= 1` and `drop > 0` are hard invariants.** The CA only writes cost keys for
   `demand > 0` and the models index them directly (not `.get(key, 0)`), so one zero
   pixel-period is a `KeyError` at solve time; `drop` and `density` are divisors.
+- **Satellite levels and costs come only from a facilities table `fN`.** Capacitated
+  models (`USES_CAPACITY`) refuse to run without `--facilities`; `input_facilities.xlsx`
+  only supplies location and sourcing cost (its 0..12 grid and costs, identical for all 9
+  satellites and ~5× below the tariff table, are not used). `InstanceBuilder` without a
+  table keeps the Excel values — only the uncapacitated model and the goldens rely on it.
+  Levels: `percentiles-a` of the peak fleet on the `capacity` set, regimes pooled
+  (a user decision: one table for every regime). Costs: `data/raw_facility/tariffs.json`,
+  operating cost `OPEX(q) × [0.70 + 0.30 × seasonal factor]`.
 - **The pixel set must equal `input_pixels.xlsx` exactly.** A pixel missing from the grid
   is dropped with a warning.
 - **12 periods, fixed.** `N_PERIODS`; `InstanceSpec` accepts only 12 or the one-period

@@ -27,7 +27,9 @@ subclass that restates a base block is itself a finding.
   covers `OLD/src/models/{capacitated_flex_model,extended_saa_model}.py
 
 Models are built through `src/optimization/instance.py` (`InstanceSpec` +
-`InstanceBuilder`) and solved through `src/optimization/experiments/runner.py`.
+`InstanceBuilder`, which applies the satellite levels and costs of a facilities table
+`data/facilities/fN/capacity.json`) and solved through
+`src/optimization/experiments/runner.py`.
 
 Two block-registry properties to audit specifically, because both were silent errors
 before: every objective block must declare `averaged` correctly (installation cost is

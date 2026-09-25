@@ -1,6 +1,6 @@
 # Escenarios de demanda — documentación
 
-**Versión oficial vigente:** parámetros `p1`, escenarios `v1` (idénticos en valores a los antiguos `shape_params` v3 / escenarios `v3`, hoy en `data/_archive/`)
+**Versión oficial vigente:** parámetros `p1`, escenarios `v2` (= `v1` + set `capacity`; los sets de `v1` son idénticos en valores a los antiguos `shape_params` v3 / escenarios `v3`, hoy en `data/_archive/`)
 **Código:** `src/scenarios/` (`fitting/`, `generation/`, `validation/`, `stages.py`, `cli.py`); el contrato en disco está en `src/core/contract.py` y los lectores de inputs crudos en `src/core/inputs.py`
 
 Este documento describe el procedimiento **vigente**. Reemplaza por completo la versión
@@ -230,17 +230,20 @@ Cada versión se guarda sin mezclar propósitos en:
 data/scenarios/v<N>/<régimen>/<set>/
 ```
 
-Para cada régimen se generan cuatro sets: `optimization` (30 escenarios simulados),
+Para cada régimen se generan cinco sets: `optimization` (30 escenarios simulados),
 `validation` (100 simulados independientes), `expected` (un escenario de 12 períodos
-con todos los shocks en su media) y `annual_expected` (un único período que es el
-promedio de los 12 períodos de `expected`).
+con todos los shocks en su media), `annual_expected` (un único período que es el
+promedio de los 12 períodos de `expected`) y, desde `v2`, `capacity` (100 simulados
+que sólo sirven para dimensionar la capacidad de los satélites —`optimize capacity
+analyze`— y nunca para optimizar ni evaluar, de modo que `validation` queda fuera de
+muestra).
 
 Los IDs son canónicos y estables, por ejemplo `normal-optimization-001`; no llevan la
 versión (que vive en el directorio y en el manifest), así que promover una candidata
 renombra un directorio sin reescribir archivos. El orden de uso está explícitamente en
 el `manifest.json` de cada set, nunca se infiere del orden de archivos.
 Los sets simulados usan `SeedSequence([seed_base, set_code]).spawn(index)`, con códigos
-30 y 100 para optimización y validación. Así los sets no comparten draws, y el mismo
+30, 100 y 60 para optimización, validación y capacidad. Así los sets no comparten draws, y el mismo
 índice de los tres regímenes sí comparte el shock base para permitir comparaciones.
 
 Cada manifest de set guarda los IDs, la semilla, el esquema de semillas, los factores de
@@ -329,11 +332,12 @@ scenarios panel build                  # raw -> data/interim/panel_monthly.csv (
 scenarios params fit --n 100           # panel -> candidata cp-*: ajuste + multiplicadores sobre 100 streams validation
 scenarios validate cp-...              # pixeles, objetivos ±1%, round-trip de ρ, R² del correlograma
 scenarios promote cp-...               # re-ejecuta, compara bytes -> p<N>
-scenarios generate --params p1         # candidata cv-*: 30 optimization + 100 validation + expected + annual_expected
+scenarios generate --params p1         # candidata cv-*: 30 optimization + 100 validation + 100 capacity + expected + annual_expected
 scenarios validate cv-...              # contrato + reports/validation.html
 scenarios promote cv-...               # -> v<N>
-scenarios explore v1                   # data/scenarios/v1/reports/explore.html
-optimize verify --scenarios v1 --n 3   # CA + Gurobi
+scenarios explore v2                   # data/scenarios/v2/reports/explore.html
+optimize verify --scenarios v2 --n 3   # CA + Gurobi
+optimize capacity analyze --scenarios v2   # tabla de capacidad por satélite (cf-* -> validate -> promote -> f<N>)
 ```
 
 (Sin instalar el paquete: `poetry run python -m src.scenarios ...` y `python -m src.optimization ...`.)
