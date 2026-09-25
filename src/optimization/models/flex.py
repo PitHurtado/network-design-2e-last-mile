@@ -171,8 +171,12 @@ class FlexSAAModel(BaseSAAModel):
 
         Installation is deliberately excluded: it is a first-stage, one-time cost and
         is reported separately so a distribution never counts it 100 times by mistake.
+        Second-stage terms use exactly the objective's coefficients, including the
+        `horizon_weight` that scales a one-period annual instance back to 12 periods, so
+        `installation + mean(second_stage)` reproduces the objective.
         """
         installation = self._obj_installation().getValue()
+        weight = self.instance.horizon_weight
         rows = []
         for scenario_id, scenario in self.instance.scenarios.items():
             operation = quicksum(
@@ -183,18 +187,19 @@ class FlexSAAModel(BaseSAAModel):
                 for period in range(self.instance.periods)
             ).getValue()
             routing_facilities = quicksum(
-                scenario.get_cost_serving("facility")[(facility_id, pixel_id, "small", period, scenario_id)]
+                round(scenario.get_cost_serving("facility")[(facility_id, pixel_id, "small", period, scenario_id)], 5)
                 * self.vars.X[(facility_id, pixel_id, period, scenario_id)]
                 for facility_id in self.instance.facilities
                 for pixel_id in scenario.pixels
                 for period in range(self.instance.periods)
             ).getValue()
             routing_dc = quicksum(
-                scenario.get_cost_serving("dc")[(pixel_id, "large", period, scenario_id)]
+                round(scenario.get_cost_serving("dc")[(pixel_id, "large", period, scenario_id)], 5)
                 * self.vars.W[(pixel_id, period, scenario_id)]
                 for pixel_id in scenario.pixels
                 for period in range(self.instance.periods)
             ).getValue()
+            operation, routing_facilities, routing_dc = (weight * operation, weight * routing_facilities, weight * routing_dc)
             second_stage = operation + routing_facilities + routing_dc
             rows.append(
                 {

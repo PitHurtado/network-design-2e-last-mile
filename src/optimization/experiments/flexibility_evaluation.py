@@ -112,6 +112,10 @@ def evaluate_one(
     scenario_costs = model.scenario_costs()
     second_stage_mean = sum(row["second_stage_cost"] for row in scenario_costs) / len(scenario_costs)
     total_mean = sum(row["total_cost"] for row in scenario_costs) / len(scenario_costs)
+    # Per-scenario costs are a second reading of the objective; they must agree with it.
+    tolerance = 0.01 + 1e-9 * abs(solve["objective_value"])
+    if abs(total_mean - solve["objective_value"]) > tolerance:
+        raise RuntimeError(f"Scenario costs average {total_mean:,.3f} but the objective is {solve['objective_value']:,.3f}.")
     output = {
         "version": version,
         "regime": regime,
