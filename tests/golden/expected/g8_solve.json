@@ -3238,9 +3238,9 @@
       "assignment_variables": "binary",
       "costs": {
         "installation": 227085.0,
-        "operation_expected": 5208.333,
-        "routing_dc_expected": 12951.043,
-        "routing_facilities_expected": 62320.167
+        "operation_expected": 62499.996,
+        "routing_dc_expected": 155412.516,
+        "routing_facilities_expected": 747842.004
       },
       "decisions": {
         "installation": [
@@ -5507,9 +5507,9 @@
       "assignment_variables": "binary",
       "costs": {
         "installation": 227085.0,
-        "operation_expected": 5208.333,
-        "routing_dc_expected": 12951.043,
-        "routing_facilities_expected": 62320.167
+        "operation_expected": 62499.996,
+        "routing_dc_expected": 155412.516,
+        "routing_facilities_expected": 747842.004
       },
       "decisions": {
         "installation": [
@@ -7776,9 +7776,9 @@
       "assignment_variables": "binary",
       "costs": {
         "installation": 227085.0,
-        "operation_expected": 5208.333,
-        "routing_dc_expected": 12951.043,
-        "routing_facilities_expected": 62320.167
+        "operation_expected": 62499.996,
+        "routing_dc_expected": 155412.516,
+        "routing_facilities_expected": 747842.004
       },
       "decisions": {
         "installation": [

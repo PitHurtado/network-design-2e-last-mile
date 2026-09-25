@@ -57,6 +57,7 @@ def run_one(
     try:
         solved = runner.solve(run.run_spec(time_limit, mip_gap))
         instance, model, solve = solved.instance, solved.model, solved.solve
+        scale = instance.horizon_weight / len(instance.scenarios)
         payload = {
             "run": asdict(run),
             "scenario_set": case["scenario_set"],
@@ -68,9 +69,10 @@ def run_one(
             "solve": solve,
             "costs": {
                 "installation": _value(model.obj.cost_installation),
-                "operation_expected": _value(model.obj.cost_operation) / len(instance.scenarios),
-                "routing_facilities_expected": _value(model.obj.cost_served_from_facilities) / len(instance.scenarios),
-                "routing_dc_expected": _value(model.obj.cost_served_from_dc) / len(instance.scenarios),
+                # Same scaling as the objective: horizon_weight / N (12 for annual_expected).
+                "operation_expected": _value(model.obj.cost_operation) * scale,
+                "routing_facilities_expected": _value(model.obj.cost_served_from_facilities) * scale,
+                "routing_dc_expected": _value(model.obj.cost_served_from_dc) * scale,
             },
             "decisions": model.decisions() if solve["objective_value"] is not None else None,
         }
