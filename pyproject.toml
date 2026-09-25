@@ -5,24 +5,38 @@ description = ""
 authors = ["phurtac <pitehrh@gmail.com>"]
 readme = "README.md"
 packages = [{include = "src"}]
-package-mode = false
+package-mode = true
+
+[tool.poetry.scripts]
+scenarios = "src.scenarios.cli:main"
+optimize = "src.optimization.cli:main"
+calibrate = "src.calibration.cli:main"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.12"
 pandas = "^2.1.4"
 numpy = "^1.26.2"
-gurobipy = "10.0.0"
+gurobipy = "^13.0"
 gurobi-machinelearning = "^1.3.3"
 jupyter = "^1.0.0"
 geopy = "^2.4.1"
 scipy = "^1.11.4"
-geopandas = "^0.14.1"
 openpyxl = "^3.1.2"
 tqdm = "^4.66.1"
 matplotlib = "^3.8.3"
+plotly = "^6.0"
+colorama = "^0.4.6"
+
+# Only the pre-refactor notebooks under OLD/ used these; no module in src/ imports
+# them. Kept as an optional group so reviving a notebook is one command away
+# instead of a guess: poetry install --with notebooks
+[tool.poetry.group.notebooks]
+optional = true
+
+[tool.poetry.group.notebooks.dependencies]
+geopandas = "^0.14.1"
 scikit-learn = "^1.7.1"
 seaborn = "^0.13.2"
-colorama = "^0.4.6"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -30,6 +44,7 @@ pre-commit = "^3.6.0"
 isort = "^5.13.0"
 black = "^23.11.0"
 pylint = "^3.0.2"
+pytest = "^8.3"
 
 [build-system]
 requires = ["poetry-core"]
@@ -55,7 +70,7 @@ disable = [
 
 [tool.black]
 line-length = 130
-target-version = ["py310"]
+target-version = ["py312"]
 
 [tool.isort]
 profile = "black"

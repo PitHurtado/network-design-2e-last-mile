@@ -1,0 +1,98 @@
+{
+  "kind": "params",
+  "id": "p1",
+  "command": {
+    "program": "scenarios",
+    "subcommand": "params fit",
+    "argv": [
+      "params",
+      "fit",
+      "--n",
+      "100"
+    ],
+    "config": {
+      "mode": "fit",
+      "n": 100,
+      "bins": 12,
+      "seed_base": 20260908,
+      "validation_n": null
+    }
+  },
+  "inputs": {
+    "raw": [
+      {
+        "path": "data/raw_pixel/input_pixels.xlsx",
+        "sha256": "5ac0d5d2cb0fbed544c595bc25e3378cc7c1d182ff2d347d69c3c7519b6909b6",
+        "bytes": 17290
+      },
+      {
+        "path": "data/raw_pixel/customer_pixel_layer.csv",
+        "sha256": "ffd69183027e7b69f03d564f5673d3c378cbf33d113b3a736920a09ab9a77990",
+        "bytes": 6139805
+      },
+      {
+        "path": "data/sandbox/params/cp-20260925-120523/panel_monthly.csv",
+        "sha256": "e52ee48e59bfc448a5d5479ace6377edb02891a1d267a21ea1a7f6da4a4c42ff",
+        "bytes": 539244
+      }
+    ],
+    "parents": []
+  },
+  "seeds": {
+    "seed_base": 20260908,
+    "scheme": "calibration on SeedSequence([seed_base, set_code]).spawn(index); set_code optimization=30, validation=100 (validation, n=100)"
+  },
+  "details": {
+    "regimes": {
+      "low": {
+        "target_period_demand": 20465.0,
+        "multiplier": 0.44581760453029856,
+        "realized_period_demand": 20464.967796511486
+      },
+      "normal": {
+        "target_period_demand": 32678.0,
+        "multiplier": 0.7118839957589982,
+        "realized_period_demand": 32678.086883690463
+      },
+      "high": {
+        "target_period_demand": 48320.0,
+        "multiplier": 1.0526815885819931,
+        "realized_period_demand": 48319.86095556588
+      }
+    },
+    "spatial": {
+      "model": "exponential+plateau",
+      "rho_km": 0.6709221258830319,
+      "nugget": 1.3600488056768224e-14,
+      "plateau": 0.027398020281912974,
+      "weighted_r2": 0.8841919580042432
+    },
+    "calibration_iterations": {
+      "low": 2,
+      "normal": 2,
+      "high": 2
+    },
+    "shape_params_sha256": "21e67588b76628df4c2b32e19a8d0073ee9eadbfa1402a0a4262c7de2b3e44f2"
+  },
+  "code": {
+    "git_commit": "2363dc7cc2bbe00c1327b28e449a78f2f9e5c4f5",
+    "git_dirty": false
+  },
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "scipy": "1.15.3",
+    "plotly": "6.7.0",
+    "gurobipy": "13.0.1",
+    "platform": "macOS-26.7-arm64-arm-64bit"
+  },
+  "content": {
+    "sha256": "5850f36e60d234e0e6bf66429be2d2e20be2f87cd0f616ac13196e45b8f506ff",
+    "n_files": 3
+  },
+  "created_at": "2026-09-25T12:05:24-0300",
+  "promoted_from": "cp-20260925-120523",
+  "promoted_at": "2026-09-25T12:05:34-0300",
+  "schema_version": 2
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "regime": "low",
+  "scenario_set": "expected",
+  "scenario_ids": [
+    "low-expected"
+  ],
+  "multiplier": 0.44581760453029856,
+  "stop_factor": 0.5680807196248034,
+  "drop_factor": 0.7847786223492056,
+  "regime_scaling": {
+    "stop_exponent": 0.7,
+    "drop_exponent": 0.3
+  },
+  "n_scenarios": 1,
+  "seed_base": 20260908,
+  "seed_scheme": "SeedSequence([seed_base, set_code]).spawn(index); set_code optimization=30, validation=100",
+  "shape_params_sha256": "21e67588b76628df4c2b32e19a8d0073ee9eadbfa1402a0a4262c7de2b3e44f2",
+  "period_total_mean": 20473.85828536574,
+  "period_total_p10": 20473.85828536574,
+  "period_total_p90": 20473.85828536574,
+  "stop_floor_hits": 0,
+  "stop_cells_drawn": 1932,
+  "stop_floor_share": 0.0,
+  "pixels": 161,
+  "periods": 12,
+  "optimization_compatible": true,
+  "target_period_demand": 20465.0
+}

@@ -1,0 +1,20 @@
+{
+  "centroids": "6446689e45b5711eb63204474e36a818d8d6639f8bcd2a992ef385bf6931336d",
+  "cholesky": "cbd585145acd2df9742cf4449f499396325f2da9a1fdb7fef07b85dc5469667d",
+  "correlation": "630371222b3a9a208f0546e1f59e9127005dba3275134add9859cd8090a5faff",
+  "distances": "d13cde7d0436ca1bb1c2e1f0556ffac7b25599c6cac044ed98a0973d3164e728",
+  "rings": {
+    "1": {
+      "n": 552,
+      "sha": "f25482cdc2acc2208b046674cae9c401ad4140b4adb51d5065614b8efe5bac95"
+    },
+    "2": {
+      "n": 1600,
+      "sha": "50f06f98137acc4a4a9812c8ebfbb0f601bed2fe24f8614f21c5c7740df1f956"
+    },
+    "3": {
+      "n": 2886,
+      "sha": "3e675bfdb8777f31f67257781525bb7aeb023fb23bf325fd81d08940afbc73d2"
+    }
+  }
+}

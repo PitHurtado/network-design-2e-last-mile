@@ -1,0 +1,87 @@
+"""End-to-end check: do the generated scenarios feed the CA and Gurobi unchanged?
+
+    optimize verify --scenarios v1 --n 3
+
+This is the acceptance test for the scenario contract. The failure modes it targets
+are silent-to-read but fatal at solve time:
+
+* the CA only writes cost keys for `demand > 0`, and `BaseSAAModel._obj_routing_facilities`
+  indexes them directly, so one zero pixel-period is a `KeyError`;
+* `drop` is a divisor and `density` sits under a `sqrt` in a divisor, so a zero
+  there is a `ZeroDivisionError` before the model is even built;
+* the objective divides by the number of scenarios, so an empty scenario list is a
+  division by zero.
+
+It also checks that the objective orders `low < normal < high`, which it must if the
+regimes mean anything.
+"""
+
+from src.core.constants import REGIMES
+from src.optimization.instance import InstanceBuilder, InstanceSpec
+from src.optimization.models.uncapacitated import UncapacitatedSAAModel
+from src.tools.logging import get_logger
+
+logger = get_logger("VerifyEndToEnd")
+
+
+def run_regime(builder: InstanceBuilder, regime: str, n_scenarios: int, max_run_time: float) -> dict:
+    """Build the instance, run the CA and solve the uncapacitated model."""
+    instance = builder.build(
+        InstanceSpec(
+            id_instance=f"verify_{regime}",
+            n_scenarios=n_scenarios,
+            regime=regime,
+            is_continuous_var_x=True,
+            use_euclidean_distance=True,
+        )
+    )
+
+    model = UncapacitatedSAAModel(instance)
+    model.set_params({"TimeLimit": max_run_time, "MIPGap": 0.01, "OutputFlag": 0})
+    model.build()
+    result = model.solve()
+
+    # `status` now travels with the objective: BaseSAAModel.solve() records it, so a
+    # time-limit incumbent can no longer be read as an optimum.
+    return {
+        "regime": regime,
+        "objective": result["objective_value"],
+        "run_time": result["actual_run_time"],
+        "gap": result["optimality_gap"],
+        "status": result["status"],
+        "n_pixels": len(next(iter(instance.scenarios.values())).pixels),
+        "n_scenarios": len(instance.scenarios),
+    }
+
+
+def verify(builder: InstanceBuilder, n_scenarios: int = 3, max_run_time: float = 120.0, regimes=REGIMES) -> int:
+    """Solve every regime and check the objectives order; returns a process exit code."""
+    regimes = list(regimes)
+    results = []
+    for regime in regimes:
+        try:
+            results.append(run_regime(builder, regime, n_scenarios, max_run_time))
+        except Exception as error:  # noqa: BLE001 - the point is to surface the failure
+            logger.error(f"[{regime}] FAILED: {type(error).__name__}: {error}")
+            raise
+
+    print("\nResultados end-to-end (CA + modelo uncapacitated):")
+    print(f"  {'régimen':10s} {'objetivo':>14s} {'gap%':>7s} {'seg':>7s} {'estado':>11s} {'píxeles':>8s} {'esc.':>5s}")
+    for row in results:
+        print(
+            f"  {row['regime']:10s} {row['objective']:>14,.2f} {row['gap']:>7.3f} "
+            f"{row['run_time']:>7.1f} {row['status']:>11s} {row['n_pixels']:>8d} {row['n_scenarios']:>5d}"
+        )
+    not_optimal = [r["regime"] for r in results if r["status"] != "OPTIMAL"]
+    if not_optimal:
+        print(f"\n  ATENCIÓN: régimen(es) sin resolver a optimalidad: {not_optimal}")
+
+    objectives = [row["objective"] for row in results]
+    if regimes == list(REGIMES):
+        ordered = objectives == sorted(objectives)
+        print(f"\nOrden low < normal < high: {'OK' if ordered else 'FALLA'}")
+        if not ordered:
+            logger.error(f"Los objetivos no están ordenados por régimen: {objectives}")
+            return 1
+    print("El contrato de escenarios se respeta: la CA y Gurobi corren sin cambios.")
+    return 0

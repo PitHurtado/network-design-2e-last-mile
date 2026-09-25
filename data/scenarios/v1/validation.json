@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "artifact_id": "cv-20260925-120539",
+  "content_sha256": "79271a6b10982ad52aa69395b63253ac3d06b206a36dae6aa87d09cc679d6496",
+  "validated_at": "2026-09-25T12:05:58-0300",
+  "git_commit": "2363dc7cc2bbe00c1327b28e449a78f2f9e5c4f5",
+  "passed": true,
+  "checks": [
+    {
+      "name": "[low] p\u00edxeles por escenario == 161",
+      "status": "pass",
+      "message": "161",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] per\u00edodos == 12",
+      "status": "pass",
+      "message": "12",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] stop >= 1",
+      "status": "pass",
+      "message": "min 1",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] drop > 0",
+      "status": "pass",
+      "message": "min 0.5308",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] demand > 0",
+      "status": "pass",
+      "message": "min 0.7105",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] demand == stop \u00d7 drop",
+      "status": "pass",
+      "message": "exacto",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] piso max(1,\u00b7) no liga",
+      "status": "pass",
+      "message": "0.000% de celdas",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] objetivo alcanzado (\u00b11%)",
+      "status": "pass",
+      "message": "20,465 vs 20,465",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] p\u00edxeles por escenario == 161",
+      "status": "pass",
+      "message": "161",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] per\u00edodos == 12",
+      "status": "pass",
+      "message": "12",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] stop >= 1",
+      "status": "pass",
+      "message": "min 1",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] drop > 0",
+      "status": "pass",
+      "message": "min 0.6108",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] demand > 0",
+      "status": "pass",
+      "message": "min 1.4114",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] demand == stop \u00d7 drop",
+      "status": "pass",
+      "message": "exacto",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] piso max(1,\u00b7) no liga",
+      "status": "pass",
+      "message": "0.000% de celdas",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal] objetivo alcanzado (\u00b11%)",
+      "status": "pass",
+      "message": "32,678 vs 32,678",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] p\u00edxeles por escenario == 161",
+      "status": "pass",
+      "message": "161",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] per\u00edodos == 12",
+      "status": "pass",
+      "message": "12",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] stop >= 1",
+      "status": "pass",
+      "message": "min 1",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] drop > 0",
+      "status": "pass",
+      "message": "min 0.6869",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] demand > 0",
+      "status": "pass",
+      "message": "min 2.3964",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] demand == stop \u00d7 drop",
+      "status": "pass",
+      "message": "exacto",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] piso max(1,\u00b7) no liga",
+      "status": "pass",
+      "message": "0.000% de celdas",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high] objetivo alcanzado (\u00b11%)",
+      "status": "pass",
+      "message": "48,320 vs 48,320",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low/optimization] ids del manifest == archivos",
+      "status": "pass",
+      "message": "30 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low/validation] ids del manifest == archivos",
+      "status": "pass",
+      "message": "100 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low/expected] ids del manifest == archivos",
+      "status": "pass",
+      "message": "1 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low/annual_expected] ids del manifest == archivos",
+      "status": "pass",
+      "message": "1 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low/capacity] ids del manifest == archivos",
+      "status": "pass",
+      "message": "100 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal/optimization] ids del manifest == archivos",
+      "status": "pass",
+      "message": "30 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal/validation] ids del manifest == archivos",
+      "status": "pass",
+      "message": "100 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal/expected] ids del manifest == archivos",
+      "status": "pass",
+      "message": "1 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal/annual_expected] ids del manifest == archivos",
+      "status": "pass",
+      "message": "1 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[normal/capacity] ids del manifest == archivos",
+      "status": "pass",
+      "message": "100 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high/optimization] ids del manifest == archivos",
+      "status": "pass",
+      "message": "30 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high/validation] ids del manifest == archivos",
+      "status": "pass",
+      "message": "100 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high/expected] ids del manifest == archivos",
+      "status": "pass",
+      "message": "1 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high/annual_expected] ids del manifest == archivos",
+      "status": "pass",
+      "message": "1 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[high/capacity] ids del manifest == archivos",
+      "status": "pass",
+      "message": "100 ids",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "orden low < normal < high",
+      "status": "pass",
+      "message": "20,465 < 32,678 < 48,320",
+      "value": null,
+      "threshold": null
+    }
+  ],
+  "report": "reports/validation.html"
+}

@@ -1,0 +1,10 @@
+{
+  "source": "OPEX_TABLE and installation costs of OLD/notebooks/mvp_parametros/generate_pixel_maps.py (user-provided tariff table); installation equals input_facilities.xlsx cost_installation",
+  "currency_note": "same units as the routing costs of the CA",
+  "level_step": 2,
+  "opex": {"2": 1463, "4": 2332, "6": 3271, "8": 3561, "10": 4891, "12": 5770},
+  "opex_extrapolation": "last_step",
+  "installation": {"2": 20185, "4": 28596, "6": 35325, "8": 40371, "10": 43735, "12": 45417},
+  "installation_extrapolation": "plateau",
+  "alpha_fixed": 0.70
+}

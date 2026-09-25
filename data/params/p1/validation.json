@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "artifact_id": "cp-20260925-120523",
+  "content_sha256": "5850f36e60d234e0e6bf66429be2d2e20be2f87cd0f616ac13196e45b8f506ff",
+  "validated_at": "2026-09-25T12:05:29-0300",
+  "git_commit": "2363dc7cc2bbe00c1327b28e449a78f2f9e5c4f5",
+  "passed": true,
+  "checks": [
+    {
+      "name": "p\u00edxeles == input_pixels.xlsx",
+      "status": "pass",
+      "message": "161 vs 161",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "exponentes de r\u00e9gimen suman 1",
+      "status": "pass",
+      "message": "1.000000",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[low] objetivo alcanzado (\u00b11%)",
+      "status": "pass",
+      "message": "20,465 vs 20,465",
+      "value": -1.5735884931755706e-06,
+      "threshold": 0.01
+    },
+    {
+      "name": "[normal] objetivo alcanzado (\u00b11%)",
+      "status": "pass",
+      "message": "32,678 vs 32,678",
+      "value": 2.6587823753754236e-06,
+      "threshold": 0.01
+    },
+    {
+      "name": "[high] objetivo alcanzado (\u00b11%)",
+      "status": "pass",
+      "message": "48,320 vs 48,320",
+      "value": -2.8775752095588913e-06,
+      "threshold": 0.01
+    },
+    {
+      "name": "R\u00b2 ponderado del correlograma",
+      "status": "pass",
+      "message": "0.884",
+      "value": 0.8841919580042432,
+      "threshold": 0.8
+    },
+    {
+      "name": "round-trip recupera \u03c1",
+      "status": "pass",
+      "message": "0.655 vs 0.671 km (2.3%)",
+      "value": 0.02346767075303613,
+      "threshold": 0.1
+    },
+    {
+      "name": "round-trip recupera el plateau (limitaci\u00f3n conocida: factor com\u00fan homog\u00e9neo)",
+      "status": "warn",
+      "message": "0.000 vs 0.027",
+      "value": null,
+      "threshold": null
+    }
+  ],
+  "report": null
+}

@@ -1,0 +1,234 @@
+{
+  "kind": "facilities",
+  "id": "f1",
+  "command": {
+    "program": "optimize",
+    "subcommand": "capacity analyze",
+    "argv": [
+      "capacity",
+      "analyze",
+      "--scenarios",
+      "v1"
+    ],
+    "config": {
+      "scenarios": "v1",
+      "levels": "percentiles-a",
+      "regimes": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "alpha_fixed": null,
+      "use_euclidean_distance": true,
+      "batch_size": 10
+    }
+  },
+  "inputs": {
+    "raw": [
+      {
+        "path": "data/raw_facility/tariffs.json",
+        "sha256": "736c48a3a095b78b2f82ddf9238734446676956c57a8c55e1537d2e3ba6b6e6e",
+        "bytes": 557
+      },
+      {
+        "path": "data/raw_facility/input_facilities.xlsx",
+        "sha256": "0375170e3a485c5003755e62644229092aae68c8094bb5676a625e28dd8f1b23",
+        "bytes": 9758
+      },
+      {
+        "path": "data/raw_pixel/input_pixels.xlsx",
+        "sha256": "5ac0d5d2cb0fbed544c595bc25e3378cc7c1d182ff2d347d69c3c7519b6909b6",
+        "bytes": 17290
+      },
+      {
+        "path": "data/raw_pixel/customer_pixel_layer.csv",
+        "sha256": "ffd69183027e7b69f03d564f5673d3c378cbf33d113b3a736920a09ab9a77990",
+        "bytes": 6139805
+      },
+      {
+        "path": "data/raw_distance/input_matrix_distance_facilities_pixels.xlsx",
+        "sha256": "82cf29534f7acb757269e218e5a0432475ff6259e002981d6a0eb7f687525de5",
+        "bytes": 84068
+      },
+      {
+        "path": "data/raw_distance/input_matrix_distance_dc_facilities.xlsx",
+        "sha256": "bb32af2fe63ca8b6bd153ca46d7a9c50e87e44e02cfb26f219d180de01a594a8",
+        "bytes": 8810
+      }
+    ],
+    "parents": [
+      {
+        "kind": "scenarios",
+        "id": "v1",
+        "manifest_sha256": "2400e404f959be24a461c135a1126d37183fa1bb58cf795d1c1f547f08215bcb",
+        "content_sha256": "79271a6b10982ad52aa69395b63253ac3d06b206a36dae6aa87d09cc679d6496"
+      }
+    ]
+  },
+  "seeds": {},
+  "details": {
+    "scenarios": "v1",
+    "config": {
+      "scenarios": "v1",
+      "levels": "percentiles-a",
+      "regimes": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "alpha_fixed": null,
+      "use_euclidean_distance": true,
+      "batch_size": 10
+    },
+    "alpha_fixed": 0.7,
+    "satellites": {
+      "ABAROA": {
+        "levels": [
+          0,
+          6,
+          8,
+          10,
+          12,
+          14,
+          16,
+          18,
+          20
+        ],
+        "p95": 17.0
+      },
+      "ACHACHICALA": {
+        "levels": [
+          0,
+          4,
+          6,
+          8,
+          10,
+          12,
+          14,
+          16
+        ],
+        "p95": 13.0
+      },
+      "COTA_COTA": {
+        "levels": [
+          0,
+          6,
+          8,
+          10,
+          12,
+          14,
+          16,
+          18,
+          20
+        ],
+        "p95": 18.0
+      },
+      "LLOJETA": {
+        "levels": [
+          0,
+          4,
+          6,
+          8,
+          10,
+          12,
+          14
+        ],
+        "p95": 12.0
+      },
+      "LOS_PINOS": {
+        "levels": [
+          0,
+          4,
+          6,
+          8,
+          10,
+          12,
+          14,
+          16
+        ],
+        "p95": 14.0
+      },
+      "MALLASA": {
+        "levels": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "p95": 4.0
+      },
+      "PERIFERICA": {
+        "levels": [
+          0,
+          12,
+          14,
+          16,
+          18,
+          20,
+          22,
+          24,
+          26,
+          28,
+          30,
+          32,
+          34
+        ],
+        "p95": 31.0
+      },
+      "SOPOCACHI": {
+        "levels": [
+          0,
+          12,
+          14,
+          16,
+          18,
+          20,
+          22,
+          24,
+          26,
+          28,
+          30,
+          32,
+          34
+        ],
+        "p95": 32.0
+      },
+      "ZONA_CEMENTERIO": {
+        "levels": [
+          0,
+          8,
+          10,
+          12,
+          14,
+          16,
+          18,
+          20,
+          22,
+          24
+        ],
+        "p95": 22.0
+      }
+    }
+  },
+  "code": {
+    "git_commit": "2363dc7cc2bbe00c1327b28e449a78f2f9e5c4f5",
+    "git_dirty": false
+  },
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "scipy": "1.15.3",
+    "plotly": "6.7.0",
+    "gurobipy": "13.0.1",
+    "platform": "macOS-26.7-arm64-arm-64bit"
+  },
+  "content": {
+    "sha256": "b825b03b59669b9fd7e7b2eb8e3e167d6cea467a00383fed94b631a95f2e9c8a",
+    "n_files": 3
+  },
+  "created_at": "2026-09-25T12:07:10-0300",
+  "promoted_from": "cf-20260925-120618",
+  "promoted_at": "2026-09-25T12:08:13-0300",
+  "schema_version": 2
+}

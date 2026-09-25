@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "artifact_id": "cf-20260925-120618",
+  "content_sha256": "b825b03b59669b9fd7e7b2eb8e3e167d6cea467a00383fed94b631a95f2e9c8a",
+  "validated_at": "2026-09-25T12:07:16-0300",
+  "git_commit": "2363dc7cc2bbe00c1327b28e449a78f2f9e5c4f5",
+  "passed": true,
+  "checks": [
+    {
+      "name": "todos los sat\u00e9lites de input_facilities.xlsx",
+      "status": "pass",
+      "message": "9 de 9",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ABAROA] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 6, 8, 10, 12, 14, 16, 18, 20]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ABAROA] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 20 cubre 99.3% (P95 = 17.0)",
+      "value": 99.3,
+      "threshold": 95.0
+    },
+    {
+      "name": "[ABAROA] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [35325.0, 40371.0, 43735.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ABAROA] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ABAROA] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "17 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ACHACHICALA] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 4, 6, 8, 10, 12, 14, 16]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ACHACHICALA] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 16 cubre 99.7% (P95 = 13.0)",
+      "value": 99.7,
+      "threshold": 95.0
+    },
+    {
+      "name": "[ACHACHICALA] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [28596.0, 35325.0, 40371.0, 43735.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ACHACHICALA] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ACHACHICALA] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "17 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[COTA_COTA] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 6, 8, 10, 12, 14, 16, 18, 20]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[COTA_COTA] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 20 cubre 99.0% (P95 = 18.0)",
+      "value": 99.0,
+      "threshold": 95.0
+    },
+    {
+      "name": "[COTA_COTA] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [35325.0, 40371.0, 43735.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[COTA_COTA] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[COTA_COTA] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "31 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LLOJETA] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 4, 6, 8, 10, 12, 14]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LLOJETA] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 14 cubre 100.0% (P95 = 12.0)",
+      "value": 100.0,
+      "threshold": 95.0
+    },
+    {
+      "name": "[LLOJETA] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [28596.0, 35325.0, 40371.0, 43735.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LLOJETA] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LLOJETA] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "17 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LOS_PINOS] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 4, 6, 8, 10, 12, 14, 16]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LOS_PINOS] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 16 cubre 99.7% (P95 = 14.0)",
+      "value": 99.7,
+      "threshold": 95.0
+    },
+    {
+      "name": "[LOS_PINOS] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [28596.0, 35325.0, 40371.0, 43735.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LOS_PINOS] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[LOS_PINOS] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "16 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[MALLASA] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 2, 4, 6]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[MALLASA] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 6 cubre 100.0% (P95 = 4.0)",
+      "value": 100.0,
+      "threshold": 95.0
+    },
+    {
+      "name": "[MALLASA] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [20185.0, 28596.0, 35325.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[MALLASA] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[MALLASA] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "7 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[PERIFERICA] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[PERIFERICA] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 34 cubre 98.7% (P95 = 31.0)",
+      "value": 98.7,
+      "threshold": 95.0
+    },
+    {
+      "name": "[PERIFERICA] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[PERIFERICA] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[PERIFERICA] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "31 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[SOPOCACHI] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[SOPOCACHI] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 34 cubre 98.3% (P95 = 32.0)",
+      "value": 98.3,
+      "threshold": 95.0
+    },
+    {
+      "name": "[SOPOCACHI] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[SOPOCACHI] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[SOPOCACHI] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "12 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ZONA_CEMENTERIO] niveles 0 < q1 < q2 < \u2026 (pares)",
+      "status": "pass",
+      "message": "[0, 8, 10, 12, 14, 16, 18, 20, 22, 24]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ZONA_CEMENTERIO] el nivel m\u00e1ximo cubre \u2265 95% de los picos",
+      "status": "pass",
+      "message": "nivel 24 cubre 99.0% (P95 = 22.0)",
+      "value": 99.0,
+      "threshold": 95.0
+    },
+    {
+      "name": "[ZONA_CEMENTERIO] costos no decrecen con el nivel",
+      "status": "pass",
+      "message": "instalaci\u00f3n [40371.0, 43735.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0, 45417.0]",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ZONA_CEMENTERIO] 12 costos de operaci\u00f3n \u2265 0 por nivel, cero en el nivel 0",
+      "status": "pass",
+      "message": "",
+      "value": null,
+      "threshold": null
+    },
+    {
+      "name": "[ZONA_CEMENTERIO] tiene p\u00edxeles asignados",
+      "status": "pass",
+      "message": "13 p\u00edxeles",
+      "value": null,
+      "threshold": null
+    }
+  ],
+  "report": "reports/capacity.html"
+}
