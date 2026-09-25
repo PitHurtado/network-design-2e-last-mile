@@ -1,7 +1,7 @@
 # Escenarios de demanda — documentación
 
-**Versión de parámetros:** 2 · **Ajustado el:** 2026-09-08
-**Código:** `src/pipeline/` (módulos, `reports/` y `cli/`); los lectores de inputs crudos están en `src/core/inputs.py`
+**Versión oficial vigente:** parámetros `p1`, escenarios `v1` (idénticos en valores a los antiguos `shape_params` v3 / escenarios `v3`, hoy en `data/_archive/`)
+**Código:** `src/scenarios/` (`fitting/`, `generation/`, `validation/`, `stages.py`, `cli.py`); el contrato en disco está en `src/core/contract.py` y los lectores de inputs crudos en `src/core/inputs.py`
 
 Este documento describe el procedimiento **vigente**. Reemplaza por completo la versión
 anterior, que documentaba un código distinto del que corría (ver §9).
@@ -44,9 +44,15 @@ paper:
 | `data/raw_pixel/customer_pixel_layer.csv` | crosswalk cliente → `(layer, pixel)` | sí |
 | `data/raw_pixel/grid_pixels.geojson` | geometría de la grilla | sí |
 | `data/raw_pixel/input_pixels.xlsx` | píxeles del modelo: `area_surface`, `speed_intra_stop` | sí |
-| `data/scenarios/shape_params.json` | **parámetros ajustados: la entrada reproducible** | sí |
-| `data/scenarios/panel_monthly.csv` | panel derivado (caché) | no |
-| `data/scenarios/generated/<versión>/<régimen>/<set>/` | escenarios generados versionados | no |
+| `data/interim/panel_monthly.csv` (+ `panel_source.json`) | panel derivado (caché) y los sha256 de los raws de los que sale | no |
+| `data/params/p<N>/shape_params.json` | **parámetros ajustados: la entrada reproducible** | sí |
+| `data/params/p<N>/panel_monthly.csv` | copia del panel sobre el que se ajustó `p<N>` | no |
+| `data/scenarios/v<N>/<régimen>/<set>/` | escenarios de una versión oficial (los `scenario_*.json` no se versionan; los manifests sí) | parcial |
+| `data/sandbox/{params,scenarios,comparisons}/` | candidatas descartables | no |
+
+Cada artefacto (`p<N>`, `v<N>`) tiene un `manifest.json` con su linaje completo —comando y
+configuración, sha256 de cada raw, artefacto padre, semillas, commit de git y versiones de
+librerías— y un `validation.json` con los chequeos que pasó antes de promoverse.
 
 ### 2.1 El fan-out del archivo crudo
 
@@ -60,7 +66,7 @@ concluyente —
 - sobrevive una columna `_merge == "both"` constante.
 
 `drop_duplicates()` sobre las 8 columnas deja **1,019,698 filas** y la demanda total pasa
-de 10,694,636 a **3,924,851**. `src/pipeline/demand_panel.py` aborta si la proporción de
+de 10,694,636 a **3,924,851**. `src/scenarios/fitting/panel.py` aborta si la proporción de
 fan-out se aparta de lo verificado, en lugar de seguir con totales inflados 2.7×.
 
 ### 2.2 Otras correcciones de data
@@ -218,10 +224,10 @@ el escenario de valor esperado, el que corresponde usar para EV/VSS. Su agregado
 
 ### 4.5 Sets, versiones, semillas e identificadores
 
-Cada corrida se guarda sin mezclar propósitos en:
+Cada versión se guarda sin mezclar propósitos en:
 
 ```
-data/scenarios/generated/<versión>/<régimen>/<set>/
+data/scenarios/v<N>/<régimen>/<set>/
 ```
 
 Para cada régimen se generan cuatro sets: `optimization` (30 escenarios simulados),
@@ -229,16 +235,19 @@ Para cada régimen se generan cuatro sets: `optimization` (30 escenarios simulad
 con todos los shocks en su media) y `annual_expected` (un único período que es el
 promedio de los 12 períodos de `expected`).
 
-Los IDs son canónicos y estables, por ejemplo `v3-normal-optimization-001`; el orden
-de uso está explícitamente en `manifest.json`, nunca se infiere del orden de archivos.
+Los IDs son canónicos y estables, por ejemplo `normal-optimization-001`; no llevan la
+versión (que vive en el directorio y en el manifest), así que promover una candidata
+renombra un directorio sin reescribir archivos. El orden de uso está explícitamente en
+el `manifest.json` de cada set, nunca se infiere del orden de archivos.
 Los sets simulados usan `SeedSequence([seed_base, set_code]).spawn(index)`, con códigos
 30 y 100 para optimización y validación. Así los sets no comparten draws, y el mismo
 índice de los tres regímenes sí comparte el shock base para permitir comparaciones.
 
-Cada manifest guarda la versión, los IDs, la semilla, el esquema de semillas, los
-factores de régimen y el SHA-256 de `shape_params.json`. Para repetir una corrida se
-usan el mismo `--version`, `--seed-base`, parámetros y tamaños; para no sobrescribir un
-artefacto publicado se debe usar una etiqueta de versión nueva.
+Cada manifest de set guarda los IDs, la semilla, el esquema de semillas, los factores de
+régimen y el SHA-256 de los parámetros; el `manifest.json` raíz de la versión registra de
+qué `p<N>` viene. Ninguna versión oficial se sobrescribe: todo comando escribe una
+candidata, y sólo `scenarios promote` —que re-ejecuta el comando registrado y exige
+bytes idénticos— crea la siguiente versión.
 
 `annual_expected` es un escenario de planificación anual de un período. Sus `stop`
 pueden ser fraccionarios al ser promedios; el optimizador admite este horizonte solo
@@ -316,32 +325,30 @@ esté ahí se **descarta en silencio**.
 ## 7. Reproducir
 
 ```bash
-poetry install
-poetry shell
-
-python -m src.pipeline.cli.build_panel          # raw -> panel mensual
-python -m src.pipeline.cli.fit_params --n 50    # panel -> shape_params.json
-python -m src.pipeline.cli.generate --all --version v3
-python -m src.pipeline.cli.analyze --version v3  # validación sobre los 100 escenarios validation
-python -m src.pipeline.cli.explore --version v3  # explorador sobre los 100 escenarios validation
-python -m src.optimization.cli.verify_end_to_end --n 3   # CA + Gurobi
+scenarios panel build                  # raw -> data/interim/panel_monthly.csv (+ panel_source.json)
+scenarios params fit --n 100           # panel -> candidata cp-*: ajuste + multiplicadores sobre 100 streams validation
+scenarios validate cp-...              # pixeles, objetivos ±1%, round-trip de ρ, R² del correlograma
+scenarios promote cp-...               # re-ejecuta, compara bytes -> p<N>
+scenarios generate --params p1         # candidata cv-*: 30 optimization + 100 validation + expected + annual_expected
+scenarios validate cv-...              # contrato + reports/validation.html
+scenarios promote cv-...               # -> v<N>
+scenarios explore v1                   # data/scenarios/v1/reports/explore.html
+optimize verify --scenarios v1 --n 3   # CA + Gurobi
 ```
 
-Si solo cambia la política de régimen y no se dispone del panel histórico, se puede
-recalibrar desde el `shape_params.json` persistido:
+(Sin instalar el paquete: `poetry run python -m src.scenarios ...` y `python -m src.optimization ...`.)
 
-```bash
-python -m src.pipeline.cli.recalibrate_regimes --validation-n 100
-python -m src.pipeline.cli.generate --all --version v3
-python -m src.pipeline.cli.analyze --version v3
-python -m src.pipeline.cli.explore --version v3
-```
+`fit` calibra los multiplicadores de régimen con el generador reconstruido desde los
+parámetros persistidos y sobre los mismos streams que usará el set `validation`, así que
+los escenarios escritos caen exactamente en su objetivo. Si sólo cambia la política de
+régimen, `scenarios params recalibrate --from p1` recalibra sin volver a ajustar.
 
-Con `shape_params.json` y los raws versionados, `generate` reproduce los escenarios sin
-necesitar el CSV de 192 MB ni el panel.
+Con un `p<N>` y los raws versionados, `generate` reproduce los escenarios sin necesitar el
+CSV de 192 MB: cada `p<N>` lleva la copia del panel sobre el que se ajustó.
 
-El reporte queda en `results/analysis/scenario_validation.html`. `analyze` sale con código
-distinto de cero si algún invariante del contrato falla, así que sirve de compuerta.
+`validate` deja `validation.json` y el reporte en `reports/validation.html` dentro de la
+versión, y sale con código distinto de cero si algún chequeo falla: es la compuerta de
+`promote`.
 
 ---
 

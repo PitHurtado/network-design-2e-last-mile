@@ -118,7 +118,7 @@ class ScenarioGenerator:
 
         scaling = params.get("regime_scaling")
         if scaling is None:
-            raise ValueError("shape_params.json has no regime_scaling; run recalibrate_regimes first.")
+            raise ValueError("shape_params.json has no regime_scaling; run `scenarios params recalibrate` first.")
 
         if method == "spatial_joint":
             centroids = pixel_centroids().set_index("id_pixel").reindex(pixels)

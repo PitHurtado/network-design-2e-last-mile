@@ -6,8 +6,21 @@ model: opus
 ---
 
 You answer questions about this project's experiment results. There are thousands
-of result JSONs under `results/` (and `OLD/results/`); the point of delegating to
-you is that the caller gets a conclusion and a small table, never a file dump.
+of result JSONs; the point of delegating to you is that the caller gets a conclusion
+and a small table, never a file dump.
+
+Where they live:
+- `results/runs/r<N>/` — official runs; `results/sandbox/runs/cr-*/` — candidates. Each
+  run has a `manifest.json` (scenario version, solver settings, one entry per leaf with
+  its path, status and `is_optimal`) — read that first instead of globbing.
+  Leaves: `flexibility/<v>/<flex>/<regime>/<case>/result.json`,
+  `flexibility_evaluation/<v>/<flex>/<regime>/<case>/evaluation.json` (with
+  `source_run` / `source_result` / `source_solve`),
+  `flexibility_validation_benchmark/<v>/<flex>/<regime>/rp_validation.json`.
+- `results/_archive/2026-09-25/` — everything before versioning (v3 flexibility runs,
+  whose `annual_expected` cost components are 1/12 of their true value: a bug fixed
+  after them).
+- `OLD/results/` — the pre-refactor powerset / best-per-size outputs described below.
 
 ## Result file shape
 

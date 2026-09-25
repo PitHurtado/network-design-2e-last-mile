@@ -20,9 +20,14 @@ subclass that restates a base block is itself a finding.
 
 - `base.py` — `X[i,k,t,n]`, `W[k,t,n]`, both routing terms, demand constraint, solve
 - `uncapacitated.py` — the base with every optional block off
-- `capacitated` — adds capacity-level selection `Y[i,q]` (still `OLD/src/models/capacitated_saa_model.py`)
-- `flex` — capacity may change across periods (still `OLD/src/models/capacitated_flex_model.py`)
-- `extended` — full model (still `OLD/src/models/extended_saa_model.py`)
+- `flex.py` — installation `Y[i,q]`, operation `Z[i,q,t,n]`, capacity, and the three
+  post-installation policies (`fixed_operation`, `on_off_installed`, `up_to_installed`);
+  it covers `OLD/src/models/{capacitated_flex_model,extended_saa_model}.py`
+- `capacitated` — `Y[i,q]` with capacity on Y and no Z: still only in
+  `OLD/src/models/capacitated_saa_model.py`
+
+Models are built through `src/optimization/instance.py` (`InstanceSpec` +
+`InstanceBuilder`) and solved through `src/optimization/experiments/runner.py`.
 
 Two block-registry properties to audit specifically, because both were silent errors
 before: every objective block must declare `averaged` correctly (installation cost is

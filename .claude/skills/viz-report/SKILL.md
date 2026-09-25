@@ -113,12 +113,19 @@ and check it before rendering, and state the scaling in the method box.
 
 ## Output and mechanics
 
-Write to `results/<experiment>/`, creating the directory with
-`output_path.parent.mkdir(parents=True, exist_ok=True)`. Return the `Path`. Give
-the module an `argparse` entrypoint runnable as
-`poetry run python -m src.visualization.<module>` (from `OLD/` while the refactor
-is in progress — see CLAUDE.md). Never commit generated HTML; `results/` is
-gitignored and `*.html` is LFS-tracked.
+Split every report in two, following `src/visualization/`:
+- a **renderer** in `src/visualization/{scenarios,results}/<name>_report.py`: a
+  dataclass with what it shows plus `render(data, output_path) -> Path`. It imports only
+  `src.tools` / `src.core` and the toolkit in `src/visualization/html.py`
+  (`fig_html`, `section`, `method_box`, `insight_box`, `page`, `top_bar`, `BASE_CSS`)
+  and `components/labels.py`;
+- a **builder** in `src/scenarios/reports.py` or `src/optimization/reports.py` that loads
+  the artifacts, computes the metrics worth persisting, and calls the renderer.
+
+Reports go under the artifact they describe, in its `reports/` directory (e.g.
+`results/runs/r1/reports/`), which is excluded from the artifact's content digest.
+Expose them through the package CLI (`optimize report <run>`, `scenarios explore <v>`),
+not a module-level `__main__`. Never commit generated HTML.
 
 After generating, report the output path and offer `open <path>` — do not open a
 browser unprompted.

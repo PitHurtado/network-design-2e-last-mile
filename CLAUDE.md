@@ -8,197 +8,213 @@ Two-echelon (DC → satellites → pixels) last-mile network design under demand
 uncertainty, solved with Gurobi over scenarios whose routing costs come from a
 Continuous Approximation. Research code for a paper.
 
-The repo is mid-refactor on `feature/refactor-and-cleaning`. The **scenario pipeline
-has been rebuilt** in `src/` and is working end to end; the **optimization
-experiments have not been ported yet**.
+Branch `feature/refactor-and-cleaning`: the OOP refactor is done. `src/` is six packages
+with a one-way dependency graph, every artifact is versioned (candidate → validate →
+promote), and golden tests pin the numbers. Official versions today: params `p1`,
+scenarios `v1` (value-identical to the pre-refactor `shape_params` v3 / scenarios `v3`).
+No official optimization run exists yet (`r1` is pending).
 
-`src/` was reorganized into three packages along the preprocess / solve seam:
-`src/core/` (shared), `src/pipeline/` (preprocessing) and `src/optimization/`.
-`pipeline` and `optimization` must never import each other — they meet on disk, at the
-scenario contract. That is the one structural invariant, and it is cheap to check:
-
-```bash
-grep -rn "^from src\.optimization" src/pipeline      # must print nothing
-grep -rn "^from src\.pipeline"     src/optimization  # must print nothing
+```
+tools ← core ← { scenarios , optimization ← calibration }      visualization ← { tools, core }
 ```
 
-Ported and working: all of `src/core/` and `src/pipeline/`, plus
-`src/optimization/{scenario,instance}.py`, `routing/`, `models/{base,uncapacitated}.py`
-and `cli/verify_end_to_end.py`.
+- `tools/` — generic: JSON I/O + hashing, paths, logging, `Check`/`Validator`,
+  `ArtifactStore`, `Manifest`, `Promoter`, argparse helpers. Knows nothing of the study.
+- `core/` — shared domain: constants, vehicle configs, entities, raw-input readers
+  (`inputs.py`), grid geometry (`grid.py`) and the on-disk scenario contract
+  (`contract.py`: `ScenarioLayout`, `scenario_id`, `SCENARIO_SETS`, `DEPENDENCE_METHODS`).
+- `scenarios/` — `fitting/` (panel, marginals, `RegimeCalibrator`, `ParamsFitter`),
+  `generation/` (`ScenarioGenerator`, `DependenceStrategy` subclasses, seeds,
+  `ScenarioSetWriter`), `validation/` (round-trip, contract checks, report metrics),
+  `params.py` (`ShapeParams`), `reports.py` (builders), `stages.py`, `cli.py`.
+- `optimization/` — `instance.py` (`InstanceSpec`, `InstanceBuilder`, `Instance`),
+  `routing/` (CA), `models/` (block registry), `experiments/` (`ExperimentRunner`,
+  `ResultStore`, flexibility / evaluation / benchmark), `metrics/`, `reports.py`,
+  `stages.py` (`RunStage`), `verify.py`, `cli.py`.
+- `calibration/` — SAA sample-size study: interfaces only, every method raises
+  `NotImplementedError`.
+- `visualization/` — `html.py` toolkit, `components/labels.py`, one renderer per report
+  (`scenarios/*_report.py`, `results/*_report.py`): a dataclass + `render(data, path)`.
 
-Still only in `OLD/src/`: the capacitated / flex / extended models, the powerset and
-experiment drivers, `visualization/`, and `analysis/ca_factor_analysis.py`. The
-directories that will receive them (`src/optimization/experiments/`,
-`src/optimization/reports/`) exist and say so in their `__init__.py`.
+`scenarios` and `optimization` never import each other; they meet on disk through
+`core/contract.py`. `tests/test_architecture.py` enforces the whole graph.
+
+Still only in `OLD/src/`: the capacitated model (Y-based capacity, no Z), the powerset
+and best-per-size drivers, `visualization/` solution maps, `analysis/ca_factor_analysis.py`.
+`flex.py` already covers `OLD`'s capacitated-flex and extended models.
 
 **`OLD/` is gitignored and untracked** — it exists only on this machine (plus an
 `OLD.zip` beside it) and cannot be recovered from git. It is the reference
-implementation for everything not yet ported. Never modify or delete it; copy out of
-it.
+implementation for everything not yet ported. Never modify or delete it; copy out of it.
 
 ## Commands
 
 Dependencies are managed with Poetry. A Gurobi license is required for any solve
-(academic license, expires 2027-04-22).
+(academic license, expires 2027-04-22). **The user runs `poetry lock` / `poetry install`
+themselves — do not run them.** `poetry.lock` is stale relative to `pyproject.toml`
+(python `^3.12`, pytest, `package-mode = true` with the `scenarios` / `optimize` /
+`calibrate` scripts). Until it is reinstalled, use the module form:
 
 ```bash
-poetry install
-poetry shell        # then run the module commands below directly
+poetry run python -m src.scenarios <subcommand>     # == `scenarios <subcommand>`
+poetry run python -m src.optimization <subcommand>  # == `optimize <subcommand>`
+poetry run python -m src.calibration <subcommand>   # == `calibrate <subcommand>`
 ```
 
-`pyproject.toml` was realigned with what the code actually imports, so
-**`poetry.lock` is stale** — run `poetry lock` before trusting a fresh
-`poetry install`. Notebook-only dependencies live in an optional group:
-`poetry install --with notebooks`.
-
-### Preprocessing pipeline (`src/pipeline/`)
+### Scenarios
 
 ```bash
-python -m src.pipeline.cli.build_panel            # raw events -> monthly panel
-python -m src.pipeline.cli.fit_params --n 50      # panel -> shape_params.json
-python -m src.pipeline.cli.generate --all --version v3  # params -> versioned scenario sets
-python -m src.pipeline.cli.analyze                # validation report (exit != 0 on failure)
-python -m src.pipeline.cli.explore                # exploratory report
+scenarios panel build                 # raw events -> data/interim/panel_monthly.csv (+ panel_source.json)
+scenarios params fit --n 100          # -> cp-* candidate (fit + regime calibration on 100 validation streams)
+scenarios params recalibrate --from p1
+scenarios generate --params p1        # -> cv-*: optimization 30, validation 100, expected, annual_expected
+scenarios compare --params p1 --regimes normal --n 100   # -> cc-* (exploratory, never promoted)
+scenarios explore v1
+scenarios validate <ref> | promote <ref> | list | show <ref>
 ```
 
-`--n` must match between `fit_params` and `recalibrate_regimes`: regime multipliers
-are calibrated against the exact seed sequence used for calibration. Generation emits
-30 optimization and 100 validation scenarios per regime by default.
-
-### Optimization (`src/optimization/`)
+### Optimization
 
 ```bash
-python -m src.optimization.cli.verify_end_to_end --n 3  # CA + Gurobi smoke test
+optimize flexibility --scenarios v1 [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
+optimize evaluate --run r1            # fixed-Y recourse on validation
+optimize benchmark --scenarios v1     # RP_100 for the theoretical VSS
+optimize report <run> [--benchmark <run>]
+optimize verify --scenarios v1 --n 3  # CA + Gurobi smoke test
+optimize validate <run> | promote <run> | list | show <run>
 ```
 
-### Legacy code (still in `OLD/`)
-
-Run from `OLD/`, because `constants.py` there derives `ROOT_DIR` from
-`parents[1]`, so `DATA_DIR` resolves to `OLD/data`:
+### Tests
 
 ```bash
-cd OLD && poetry run python -m src.entrypoints.run_powerset_experiment
+poetry run python -m unittest discover -s tests -t .      # ~1 min; or pytest once installed
+GOLDEN_SKIP_SOLVE=1 poetry run python -m unittest discover -s tests -t .   # no Gurobi
+poetry run python -m tests.golden.capture <name>          # re-capture ONE golden, deliberately
 ```
 
-Note `OLD/src/constants.py` points `PATH_DATA_PIXEL` at
-`OLD/data/pixels/input_pixels.xlsx`, which does not exist — the only copy is
-`data/raw_pixel/input_pixels.xlsx`, so `get_pixels()` fails there. The ported
-`src/core/constants.py` already points at the right place.
+- `tests/golden/`: G1 fit, G2 recalibrate, G3 generate, G4 comparison, G5 spatial,
+  G6 report figures + visible text + CSVs, G7 CA costs/fleet, G8 solves (Threads=1,
+  Seed=0, WorkLimit — deterministic). Producers call the API; `expected/` pins outputs.
+  Re-capturing is a deliberate act: say so in the commit, with the before/after.
+- Fixtures: `tests/golden/fixtures/shape_params.json` is tracked; the panel copy and
+  `fixtures/results/` (archived v3 runs, for the report goldens) are local only.
+- `test_lifecycle.py` (promotion conditions, byte-level reproduction) and
+  `test_architecture.py` (the dependency graph).
 
 ### Lint
 
-Line length is **130** everywhere: black, isort, pylint and flake8. `.flake8` used to
-say 120, so black reformatted to 130 and flake8 then rejected what black had just
-written; that is fixed.
+Line length is **130** everywhere: black, isort, pylint and flake8. `flake8` is not a dev
+dependency; use pre-commit (`poetry run pre-commit run --all-files`) or its cached venv.
+The remaining E501 are long HTML strings in the renderers.
 
-`flake8` is not a dev dependency — it only exists inside pre-commit's own venv, so
-`poetry run flake8` fails with "Command not found". Use pre-commit:
+### Legacy code (still in `OLD/`)
 
-```bash
-poetry run black . && poetry run isort .
-poetry run pre-commit run --all-files   # black, isort, flake8, detect-secrets
+Run from `OLD/` (its `constants.py` derives `ROOT_DIR` from `parents[1]`):
+`cd OLD && poetry run python -m src.entrypoints.run_powerset_experiment`.
+`OLD/src/constants.py` points `PATH_DATA_PIXEL` at a file that does not exist; the only
+copy is `data/raw_pixel/input_pixels.xlsx`.
+
+## Versioning
+
+Every stage produces an artifact; every command writes a **candidate** into a sandbox;
+only `promote` creates an official, immutable version.
+
+```
+data/params/p<N>/         shape_params.json, panel_monthly.csv (copy, gitignored), manifest.json, validation.json
+data/scenarios/v<N>/      <regime>/<set>/{scenario_*.json (gitignored), manifest.json}, manifest.json, validation.json, reports/
+results/runs/r<N>/        <experiment>/<v>/<flex>/<regime>[/<case>]/<leaf>.json, manifest.json, validation.json, reports/
+data/sandbox/{params,scenarios,comparisons}/  results/sandbox/runs/   candidates: cp-/cv-/cc-/cr-<timestamp>
+data/_archive/2026-09-25/  results/_archive/2026-09-25/                everything before versioning (v2, v3, vcompare*)
 ```
 
-**There are no tests.** Verification is the `analyze` report plus
-`verify_end_to_end`.
+- `manifest.json`: command + resolved config, sha256 of every raw input, parents (id +
+  digests), seeds, git commit/dirty, library versions, content digest, stage details.
+- Content digest excludes `manifest.json`, `validation.json` and `reports/`, so reports
+  can be regenerated inside an official version.
+- `promote` refuses unless: validated and passed; content unchanged since; parents
+  official and unchanged; produced from a clean tree at the current HEAD and the tree is
+  still clean; and (params, scenarios) re-executing the command is byte-identical.
+  Runs are not re-executed (time-limited MIPs are not deterministic); a leaf whose key
+  (scenarios + model + solver + policy + regime + case) exists in an official run is
+  copied instead of re-solved.
+- Only the identity of official versions is in git (manifests, validation, params).
 
 ## Architecture
 
-A one-way pipeline. Understanding it matters more than any individual file:
-
 ```
-raw events  →  monthly panel  →  shape params  →  scenarios  →  CA  →  Gurobi LP  →  results  →  HTML
-data/raw_*    data/scenarios/   shape_params    generated/    optimization/         results/   optimization/
-              panel_monthly     .json                         routing/  models/                reports/
-└──────────────────── src/pipeline/ ─────────────────────┘└──────── src/optimization/ ────────────────────┘
+raw events → panel → params (pN) → scenarios (vN) → CA → Gurobi → runs (rN) → reports
+└──────────── src/scenarios ─────────────┘   └──────────── src/optimization ───────────┘
 ```
-
-The arrow between `generated/` and the CA is the package boundary: `pipeline` writes
-those JSONs, `optimization` reads them, and neither imports the other.
 
 The pivotal design decision: **routing costs are computed analytically before the
 solve.** The Continuous Approximation turns pixel geometry (area, customer density,
-drop size) into a cost and fleet size per
-`(facility, pixel, vehicle, period, scenario)`, so the LP never enumerates routes —
-it only chooses assignments over precomputed costs. A bug in the CA does not crash
-anything; it silently shifts every downstream number.
+drop size) into a cost and fleet size per `(facility, pixel, vehicle, period, scenario)`,
+so the LP never enumerates routes. A bug in the CA does not crash anything; it silently
+shifts every downstream number.
 
 **Two echelons:** the DC serves pixels directly with large vehicles
 (`first_echelon_truck`), satellites serve pixels with small vehicles (`van`). Nine
 candidate satellites, 161 pixels, 12 periods, La Paz.
 
-**Configuration split:** `core/constants.py` holds paths, grid geometry and regime
-targets; `core/config.py` holds the vehicle parameter dicts. `core/inputs.py` is the
-only module that reads the raw files, and it is shared on purpose: `pipeline` needs the
-pixel grid to fit shape parameters, `optimization` needs all of it to build an
-`Instance`.
-
 **Model family:** `optimization/models/base.py` owns the shared formulation plus a
-registry of optional blocks (variables, objective components, constraints), each with a
-flag. A variant is a thin subclass that sets `DEFAULT_FEATURES` and implements the
-blocks it enables; it never restates the base. Two things the registry enforces because
-both used to be silent failure modes: each objective block declares whether it is
-averaged by `1/N` (installation cost is not), and `solve()` records `Status` and
-`is_optimal` next to the objective. Ablation is `disabled_blocks`, which names blocks
-rather than flags, so one constraint can be dropped while its variables stay; unknown
-names raise. When porting a model from `OLD/`, implement its blocks — do not copy the
-build/solve scaffolding.
+registry of optional blocks, each with a flag. A variant is a thin subclass that sets
+`DEFAULT_FEATURES` and implements the blocks it enables; it never restates the base.
+Each objective block declares whether it is averaged by `1/N` (installation is not), and
+`solve()` records `Status` and `is_optimal` next to the objective. Ablation is
+`disabled_blocks`; unknown names raise. When porting a model from `OLD/`, implement its
+blocks — do not copy the build/solve scaffolding.
 
-The scenario model itself is documented in
-`data/scenarios/ESCENARIOS_DOCUMENTACION.md` — read it before touching
-`src/pipeline/`.
+**Scenario generation:** `ScenarioGenerator.draw` multiplies expected demand by the
+shocks of a `DependenceStrategy` (`SpatialJoint`, `Independent`, `HistoricalBootstrap`,
+`MeanShocks`, `MedianShocks`). The order in which a strategy consumes the RNG is part of
+the contract (documented in `dependence.py`): scenarios regenerate bit-for-bit from seeds.
+
+The scenario model is documented in `data/scenarios/ESCENARIOS_DOCUMENTACION.md` — read
+it before touching `src/scenarios/`.
 
 ## Conventions and traps
 
 - **Two demand scales, and mixing them inflates costs ~3×.** *Model demand* is
-  `Σ (stop × drop)` — one representative delivery round in the period, ~45k/period
-  in 2022. *Raw items* is the monthly count, ~149k/month, because a customer is
-  served several times a month. Regime targets and everything in the contract are in
+  `Σ (stop × drop)` — one representative delivery round, ~45k/period in 2022. *Raw
+  items* is the monthly count, ~149k/month. Regime targets and the contract are in
   model demand.
 - **The scenario contract is four fields** per pixel: `id_pixel`, `stop`, `drop`,
-  `demand`, arrays of length 12. `id_scenario` and `type` are written but never read
-  — identity comes from the filename. `k`, `lon`, `lat`, `area_surface` come from
-  `input_pixels.xlsx`, not the scenario file.
-- **`stop >= 1` and `drop > 0` are hard invariants.** The CA only writes cost keys
-  for `demand > 0` and `BaseSAAModel._obj_routing_facilities` indexes them directly
-  (not `.get(key, 0)`, which is what the `OLD/` capacitated model did — that priced a
-  missing key at zero instead of failing), so one
-  zero pixel-period is a `KeyError` at solve time; `drop` is a divisor and `density`
-  sits under a `sqrt` in a divisor, so a zero there is a `ZeroDivisionError` first.
-- **The pixel set must equal `input_pixels.xlsx` exactly.** A pixel present in the
-  scenario but missing from the grid is dropped with a warning and the run continues
-  with fewer pixels.
-- **12 periods, fixed.** `N_PERIODS` in `constants.py`; the CA loop and the models
-  both assume it. `Instance` now raises if asked for anything else.
-- **Result JSON keys are stringified Python tuples**, e.g.
-  `"('ABAROA', 'B-106', 4, '1')"`. Parse with `ast.literal_eval`, never by splitting;
-  the scenario index inside the tuple is a *string*.
-- **Cost components do not sum to `objective`**: scenario-dependent terms are
-  averaged by `1/N`, installation cost is not.
-- **CA expressions carry `# [unit]` comments** — keep them and keep them correct.
-  Some are inconsistent (`intra_tour_time_per_customer` is annotated
-  `[hour/customer]` at its definition and `[hour/sqrt(customer)]` where it is used).
-  Dimensional errors are the dominant failure mode there.
-- **`area_surface` is an area in km²** — verified as the count of merged ~1 km² grid
-  cells, matching all 161 pixels exactly.
-- **`Status` is recorded with the objective** — `BaseSAAModel.solve()` returns
-  `status`, `is_optimal` and `objective_value = None` when there is no feasible
-  solution. The `OLD/` models did not inspect it, so a time-limit incumbent looked
-  like an optimum; do not reintroduce that when porting.
+  `demand`, arrays of length 12. `id_scenario` and `type` are written but never read.
+  `k`, `lon`, `lat`, `area_surface` come from `input_pixels.xlsx`.
+- **Scenario ids carry no version** (`normal-optimization-001`): the version is the
+  directory. Promotion renames a directory; it never rewrites a file.
+- **`stop >= 1` and `drop > 0` are hard invariants.** The CA only writes cost keys for
+  `demand > 0` and the models index them directly (not `.get(key, 0)`), so one zero
+  pixel-period is a `KeyError` at solve time; `drop` and `density` are divisors.
+- **The pixel set must equal `input_pixels.xlsx` exactly.** A pixel missing from the grid
+  is dropped with a warning.
+- **12 periods, fixed.** `N_PERIODS`; `InstanceSpec` accepts only 12 or the one-period
+  `annual_expected` set, whose variable costs are scaled by `horizon_weight = 12`.
+- **Regime calibration uses the validation streams and the persisted generator**
+  (`ScenarioGenerator.from_params`), so validation sets hit their targets exactly.
+- **Result JSON keys**: decisions are lists of row dicts. Where tuple-keyed dicts appear
+  (legacy `OLD/` results) the keys are stringified tuples: parse with `ast.literal_eval`.
+- **Cost components**: `result.json` components are scaled like the objective
+  (`horizon_weight / N`), so they sum to `objective`. The archived v3 runs predate that
+  fix: their `annual_expected` components are 1/12 of the true value.
+- **`evaluation.json`** records `source_run`, `source_result` (relative to that run) and
+  `source_solve`; `evaluate_one` checks that installation + mean second-stage cost equals
+  the objective.
+- **CA expressions carry `# [unit]` comments** — keep them correct. Some are
+  inconsistent (`intra_tour_time_per_customer`). Dimensional errors are the dominant
+  failure mode there.
+- **`area_surface` is an area in km²** (count of merged ~1 km² cells).
+- **Neighbour rings are cumulative**: `pixel_neighbor_pairs(ring=k)` is graph distance ≤ k.
 - Pylint permits single-capital names (`X`, `W`, `Y`, `N`, `Q`, `i`, `k`, `t`) so code
-  can mirror the formulation's notation. Use the README's symbols.
-- **What is versioned:** `.gitignore` no longer excludes `data/` wholesale. Fitted
-  shape parameters, the scenario documentation and the small raw inputs are tracked;
-  the 192 MB demand CSV, the derived panel, generated scenarios and `results/` are
-  not.
+  can mirror the formulation's notation.
 
 ## Subagents and skills
 
-`.claude/agents/`: `model-formulation-reviewer` (Gurobi code vs. the README
-formulation, now `src/optimization/models/`), `ca-auditor` (CA dimensional analysis,
-now `src/optimization/routing/`), `results-analyst` (mining result JSONs without
-flooding context), `refactor-migrator` (porting `OLD/src` modules with
-numerical-equivalence proof).
+`.claude/agents/`: `model-formulation-reviewer` (Gurobi code vs. the README formulation,
+`src/optimization/models/`), `ca-auditor` (CA dimensional analysis,
+`src/optimization/routing/`), `results-analyst` (mining run artifacts without flooding
+context), `refactor-migrator` (porting `OLD/src` modules with numerical-equivalence proof).
 
-`.claude/skills/viz-report/`: house style for the interactive HTML reports (Plotly
-via CDN, method box + insight box per section, insights computed from the data).
+`.claude/skills/viz-report/`: house style for the HTML reports (Plotly via CDN, method
+box + insight box per section, insights computed from the data) and the
+renderer / builder split of `src/visualization/`.
