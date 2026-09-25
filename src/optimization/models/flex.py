@@ -190,7 +190,8 @@ class FlexSAAModel(BaseSAAModel):
                 for period in range(self.instance.periods)
             ).getValue()
             routing_dc = quicksum(
-                scenario.get_cost_serving("dc")[(pixel_id, "large", period, scenario_id)] * self.vars.W[(pixel_id, period, scenario_id)]
+                scenario.get_cost_serving("dc")[(pixel_id, "large", period, scenario_id)]
+                * self.vars.W[(pixel_id, period, scenario_id)]
                 for pixel_id in scenario.pixels
                 for period in range(self.instance.periods)
             ).getValue()

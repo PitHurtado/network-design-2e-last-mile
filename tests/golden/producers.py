@@ -221,33 +221,35 @@ def g6_reports(ws: Workspace) -> dict:
     results = {}
 
     scenario_patches = {
-        "src.scenarios.reports.scenarios.PATH_SHAPE_PARAMS": PARAMS,
+        "src.scenarios.reports.PATH_SHAPE_PARAMS": PARAMS,
         "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
         "src.core.constants.PATH_GENERATED_SCENARIOS": generated,
     }
     with patched(scenario_patches), figure_capture() as figures:
-        from src.scenarios.reports.scenarios import aggregate_cv_impact, build_report
+        from src.scenarios.reports import build_validation_report
+        from src.scenarios.validation.params import aggregate_cv_impact
 
-        path, n_failed = build_report(list(ALL_REGIMES), output_path=out_dir / "validation.html", version=VERSION)
+        path, n_failed = build_validation_report(list(ALL_REGIMES), output_path=out_dir / "validation.html", version=VERSION)
         results["validation"] = {**_report_digest("validation", path, list(figures)), "n_failed": n_failed}
         results["aggregate_cv"] = aggregate_cv_impact(_load_params())
 
     with patched(scenario_patches), figure_capture() as figures:
-        from src.scenarios.reports.explore import build_report as build_explore
+        from src.scenarios.reports import build_explore_report
 
-        path = build_explore(list(ALL_REGIMES), output_path=out_dir / "explore.html", version=VERSION)
+        path = build_explore_report(list(ALL_REGIMES), output_path=out_dir / "explore.html", version=VERSION)
         results["explore"] = _report_digest("explore", path, list(figures))
 
     with (
         patched(
             {
-                "src.scenarios.reports.comparison.PATH_SHAPE_PARAMS": PARAMS,
+                "src.scenarios.reports.PATH_SHAPE_PARAMS": PARAMS,
+                "src.scenarios.fitting.panel.PATH_PANEL_MONTHLY": PANEL,
                 "src.core.constants.PATH_COMPARISON_SCENARIOS": comparison,
             }
         ),
         figure_capture() as figures,
     ):
-        from src.scenarios.reports.comparison import build_comparison_report
+        from src.scenarios.reports import build_comparison_report
 
         cmp_dir = ws.path("reports", "comparison")
         path = build_comparison_report("normal", version=VERSION, output_path=cmp_dir / "comparison.html")
@@ -255,15 +257,15 @@ def g6_reports(ws: Workspace) -> dict:
         results["comparison"] = _report_digest("comparison", path, list(figures), extra)
 
     with figure_capture() as figures:
-        from src.optimization.reports.flexibility import build_report as build_flex
+        from src.optimization.reports import build_flexibility_report as build_flex
 
         flex_dir = ws.path("reports", "flexibility")
         path = build_flex(FIXTURE_RESULTS_VERSION, output_path=flex_dir / "flex.html", root=FIXTURE_RESULTS / "flexibility")
         results["flexibility"] = _report_digest("flexibility", path, list(figures), [flex_dir / "summary.json"])
 
-    with patched({"src.optimization.reports.flexibility_evaluation.RESULTS_DIR": FIXTURE_RESULTS}):
-        from src.optimization.reports.flexibility_evaluation import build_partial_preview
-        from src.optimization.reports.flexibility_evaluation import build_report as build_vss
+    with patched({"src.optimization.reports.RESULTS_DIR": FIXTURE_RESULTS}):
+        from src.optimization.reports import build_evaluation_preview as build_partial_preview
+        from src.optimization.reports import build_evaluation_report as build_vss
 
         root = FIXTURE_RESULTS / "flexibility_evaluation"
         with figure_capture() as figures:

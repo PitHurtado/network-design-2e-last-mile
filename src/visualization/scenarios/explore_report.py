@@ -2,6 +2,8 @@
 
 import json
 import math
+from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -9,14 +11,22 @@ import plotly.colors as pc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from src.core.constants import DEFAULT_SCENARIO_VERSION, GRID_DLAT, GRID_DLON, N_PERIODS, RESULTS_DIR
-from src.core.contract import ScenarioLayout
-from src.scenarios.generation.sets import ScenarioSetWriter
-from src.scenarios.reports.scenarios import CSS, PLOTLY_CDN, REGIME_COLORS, section, to_html
-from src.scenarios.spatial import pixel_centroids
-from src.tools.logging import get_logger
+from src.core.constants import GRID_DLAT, GRID_DLON, N_PERIODS
+from src.visualization.components.labels import REGIME_COLORS
+from src.visualization.html import BASE_CSS, PLOTLY_CDN, fig_html, section
 
-logger = get_logger("ExploreScenarios")
+
+@dataclass
+class ExploreReportData:
+    """Validation sets of the three regimes, with the statistics `src.scenarios.reports` computed."""
+
+    regimes: list[str]
+    summaries: dict[str, pd.DataFrame]  # per pixel, with layer / lon / lat / n_cells
+    period_metrics: pd.DataFrame
+    pairwise_correlations: dict[str, np.ndarray]
+    n_scenarios: int
+
+
 SEQUENTIAL_BLUE = [
     "#cde2fb",
     "#b7d3f6",
@@ -37,38 +47,6 @@ METRICS = {
     "stop": ("mean_stop", "Stops medios por período"),
     "drop": ("mean_drop", "Drop medio (items por stop)"),
 }
-
-
-def load_all(regimes: list[str], version: str = DEFAULT_SCENARIO_VERSION) -> dict[str, pd.DataFrame]:
-    """Load simulated scenarios only, merged with geometry and layer."""
-    centroids = pixel_centroids()[["id_pixel", "layer", "lon", "lat", "n_cells"]]
-    data = {}
-    writer = ScenarioSetWriter(ScenarioLayout.generated(version))
-    for regime in regimes:
-        frame = writer.load_long(regime, "validation")
-        frame = frame.merge(centroids, on="id_pixel", how="left")
-        if frame["layer"].isna().any():
-            raise ValueError(f"[{regime}] pixels missing from pixel_centroids()")
-        data[regime] = frame
-    return data
-
-
-def pixel_summary(frame: pd.DataFrame) -> pd.DataFrame:
-    """Per-pixel levels and scenario variability for all demand components."""
-    grouped = frame.groupby(["id_pixel", "id_scenario"])
-    annual_demand, annual_stop, mean_drop = grouped["demand"].sum(), grouped["stop"].sum(), grouped["drop"].mean()
-    summary = pd.DataFrame(
-        {
-            "mean_demand_period": frame.groupby("id_pixel")["demand"].mean(),
-            "mean_stop": frame.groupby("id_pixel")["stop"].mean(),
-            "mean_drop": frame.groupby("id_pixel")["drop"].mean(),
-            "cv_demand": annual_demand.groupby("id_pixel").std() / annual_demand.groupby("id_pixel").mean(),
-            "cv_stop": annual_stop.groupby("id_pixel").std() / annual_stop.groupby("id_pixel").mean(),
-            "cv_drop": mean_drop.groupby("id_pixel").std() / mean_drop.groupby("id_pixel").mean(),
-        }
-    )
-    geo = frame.drop_duplicates("id_pixel").set_index("id_pixel")[["layer", "lon", "lat", "n_cells"]]
-    return summary.join(geo)
 
 
 def _pixel_rect(lon: float, lat: float, n_cells: int) -> tuple[list, list]:
@@ -156,24 +134,6 @@ def build_grid_figure(view: pd.DataFrame, normal: pd.DataFrame, column: str, lab
         plot_bgcolor="white",
     )
     return fig, basic, detailed
-
-
-def regime_period_metrics(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    rows = []
-    for regime, frame in data.items():
-        totals = frame.groupby(["id_scenario", "period"])[["stop", "demand"]].sum()
-        rows.append(
-            pd.DataFrame(
-                {
-                    "regime": regime,
-                    "period": totals.index.get_level_values("period"),
-                    "stops": totals["stop"].to_numpy(),
-                    "demand": totals["demand"].to_numpy(),
-                    "drop": (totals["demand"] / totals["stop"]).to_numpy(),
-                }
-            )
-        )
-    return pd.concat(rows, ignore_index=True)
 
 
 def fig_regime_distribution(metrics: pd.DataFrame, regimes: list[str]) -> go.Figure:
@@ -269,17 +229,12 @@ def fig_regime_bands(metrics: pd.DataFrame, regimes: list[str]) -> go.Figure:
     return fig
 
 
-def annual_scenario_matrix(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame.groupby(["id_scenario", "id_pixel"])["demand"].sum().unstack("id_pixel")
-
-
-def fig_pairwise_corr(data: dict[str, pd.DataFrame], regimes: list[str]) -> go.Figure:
+def fig_pairwise_corr(correlations: dict[str, np.ndarray], regimes: list[str]) -> go.Figure:
     fig = go.Figure()
     for regime in regimes:
-        corr = np.corrcoef(annual_scenario_matrix(data[regime]).to_numpy())
         fig.add_trace(
             go.Histogram(
-                x=corr[np.triu_indices_from(corr, k=1)],
+                x=correlations[regime],
                 name=regime,
                 marker_color=REGIME_COLORS[regime],
                 opacity=0.6,
@@ -301,7 +256,7 @@ def fig_pairwise_corr(data: dict[str, pd.DataFrame], regimes: list[str]) -> go.F
     return fig
 
 
-CSS_EXTRA = """
+CSS_EXTRA = CSS_EXTRA = """
 #top-bar { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 #top-bar label { color: white; font-size: .9em; font-weight: bold; } #top-bar select { font-size: .95em; padding: 4px 8px; border-radius: 4px; border: none; }
 #top-bar input[type=checkbox] { transform: scale(1.2); margin-right: 4px; } .combo-view { display: none; }
@@ -309,15 +264,12 @@ CSS_EXTRA = """
 """
 
 
-def build_report(regimes: list[str], output_path=None, version: str = DEFAULT_SCENARIO_VERSION):
-    output_path = output_path or (RESULTS_DIR / version / "explore_scenarios.html")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    if len(regimes) != 3 or set(regimes) != {"low", "normal", "high"}:
-        raise ValueError("The comparative explorer requires low, normal, and high regimes.")
-    data = load_all(regimes, version)
-    summaries = {regime: pixel_summary(frame) for regime, frame in data.items()}
+def render(data: ExploreReportData, output_path: Path) -> Path:
+    regimes = data.regimes
+    summaries = data.summaries
     layers, n_pixels = sorted(summaries["normal"]["layer"].unique()), len(summaries["normal"])
-    n_scenarios, period_metrics = data["normal"]["id_scenario"].nunique(), regime_period_metrics(data)
+    period_metrics = data.period_metrics
+    n_scenarios = data.n_scenarios
     hover_store, combo_html = {}, {}
     for metric_key, (column, label) in METRICS.items():
         for layer in layers:
@@ -329,7 +281,7 @@ def build_report(regimes: list[str], output_path=None, version: str = DEFAULT_SC
                 fig, basic, detailed = build_grid_figure(
                     subset[regime], summaries["normal"], column, label, float(values.min()), float(values.max())
                 )
-                cards.append(f"<div><h3>{regime}</h3>{to_html(fig)}</div>")
+                cards.append(f"<div><h3>{regime}</h3>{fig_html(fig)}</div>")
                 hover_store[key][regime] = {"basic": basic, "detailed": detailed}
             combo_html[key] = '<div class="grid-triptych">' + "".join(cards) + "</div>"
     normal_median = period_metrics[period_metrics["regime"] == "normal"][["stops", "drop", "demand"]].median()
@@ -342,10 +294,7 @@ def build_report(regimes: list[str], output_path=None, version: str = DEFAULT_SC
         cv_insight.append(
             f"{regime}: CV mediano demanda {summaries[regime]['cv_demand'].median():.2f}, stops {summaries[regime]['cv_stop'].median():.2f}, drop {summaries[regime]['cv_drop'].median():.2f}"
         )
-    corr_insight = "; ".join(
-        f"{regime}: media {np.mean(np.corrcoef(annual_scenario_matrix(data[regime]).to_numpy())[np.triu_indices(n_scenarios, k=1)]):.2f}"
-        for regime in regimes
-    )
+    corr_insight = "; ".join(f"{regime}: media {np.mean(data.pairwise_correlations[regime]):.2f}" for regime in regimes)
     metric_select = "".join(f'<option value="{key}">{label}</option>' for key, (_, label) in METRICS.items())
     layer_select = "".join(f'<option value="{layer}">{layer}</option>' for layer in layers)
     js = f"""const HOVER={json.dumps(hover_store)}, REGIMES={json.dumps(regimes)}; function currentKey(){{return document.getElementById('sel-metric').value+'_'+document.getElementById('sel-layer').value;}} function applyDetail(key){{const entry=HOVER[key],checked=document.getElementById('chk-detail').checked;if(!entry)return;document.querySelectorAll('.combo-view[data-key="'+key+'"] .js-plotly-plot').forEach(function(el,i){{const value=entry[REGIMES[i]];Plotly.restyle(el,{{text:[checked?value.detailed:value.basic]}},[el.data.length-1]);}});}} function updateView(){{const key=currentKey();document.querySelectorAll('.combo-view').forEach(el=>el.style.display='none');const active=document.querySelector('.combo-view[data-key="'+key+'"]');if(active){{active.style.display='block';active.querySelectorAll('.js-plotly-plot').forEach(el=>Plotly.Plots.resize(el));}}applyDetail(key);}}document.addEventListener('DOMContentLoaded',updateView);"""
@@ -361,33 +310,33 @@ def build_report(regimes: list[str], output_path=None, version: str = DEFAULT_SC
         section(
             "Nivel operativo por régimen",
             "Distribución de cada combinación escenario × período.",
-            to_html(fig_regime_distribution(period_metrics, regimes)),
+            fig_html(fig_regime_distribution(period_metrics, regimes)),
             "; ".join(comparison_insight),
             method="Stops = Σ stop; drop ponderado = Σ demand / Σ stop; demanda = Σ demand.",
         ),
         section(
             "Variabilidad por píxel entre escenarios",
             "CV por píxel, separado para demanda, stops y drop.",
-            to_html(fig_component_cv(summaries, regimes)),
+            fig_html(fig_component_cv(summaries, regimes)),
             "; ".join(cv_insight),
             method="Demanda y stops se agregan anualmente; drop es el promedio de los 12 períodos de cada escenario.",
         ),
         section(
             "Evolución por período",
             "Mediana y banda p10–p90 de los escenarios en cada período.",
-            to_html(fig_regime_bands(period_metrics, regimes)),
+            fig_html(fig_regime_bands(period_metrics, regimes)),
             "Las bandas muestran incertidumbre intra-régimen; la separación de niveles muestra el efecto del régimen.",
             method="Cuantiles sobre escenarios simulados, por período y régimen.",
         ),
         section(
             "Estructura espacial entre escenarios",
             "Correlación de la demanda anual por píxel entre pares de escenarios del mismo régimen.",
-            to_html(fig_pairwise_corr(data, regimes)),
+            fig_html(fig_pairwise_corr(data.pairwise_correlations, regimes)),
             corr_insight,
             method="Correlación de Pearson entre vectores anuales de los píxeles.",
         ),
     ]
-    html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Explorador comparativo de escenarios</title><script src="{PLOTLY_CDN}"></script><style>{CSS}{CSS_EXTRA}</style><script>{js}</script></head><body><div id="top-bar"><h1 style="margin:0;">Explorador comparativo de escenarios</h1><label>Métrica: <select id="sel-metric" onchange="updateView()">{metric_select}</select></label><label>Layer: <select id="sel-layer" onchange="updateView()">{layer_select}</select></label><label><input type="checkbox" id="chk-detail" onchange="applyDetail(currentKey())">Mostrar detalle en hover</label><p style="width:100%; margin:4px 0 0;">{n_pixels} píxeles · {N_PERIODS} períodos · {len(regimes)} regímenes × {n_scenarios} escenarios.</p></div>{''.join(sections)}</body></html>"""
+    html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Explorador comparativo de escenarios</title><script src="{PLOTLY_CDN}"></script><style>{BASE_CSS}{CSS_EXTRA}</style><script>{js}</script></head><body><div id="top-bar"><h1 style="margin:0;">Explorador comparativo de escenarios</h1><label>Métrica: <select id="sel-metric" onchange="updateView()">{metric_select}</select></label><label>Layer: <select id="sel-layer" onchange="updateView()">{layer_select}</select></label><label><input type="checkbox" id="chk-detail" onchange="applyDetail(currentKey())">Mostrar detalle en hover</label><p style="width:100%; margin:4px 0 0;">{n_pixels} píxeles · {N_PERIODS} períodos · {len(regimes)} regímenes × {n_scenarios} escenarios.</p></div>{''.join(sections)}</body></html>"""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
-    logger.info(f"Report written to {output_path}")
     return output_path

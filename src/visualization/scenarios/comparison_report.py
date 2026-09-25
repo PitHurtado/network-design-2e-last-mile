@@ -1,46 +1,41 @@
-"""Compare an independent baseline with two spatially joint demand approaches.
+"""Report comparing an independent baseline with two spatially joint demand approaches.
 
-The report uses the historical pixel-month panel as the reference and evaluates
-whether the joint generator reproduces the local co-movement that independent
-sampling necessarily removes.
+The historical pixel-month panel is the reference: does the joint generator reproduce
+the local co-movement that independent sampling necessarily removes?
 """
 
 import base64
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.colors import sample_colorscale
 from plotly.subplots import make_subplots
 
-from src.core.constants import (
-    DEFAULT_SCENARIO_VERSION,
-    GRID_DLAT,
-    GRID_DLON,
-    GRID_LAT0,
-    GRID_LON0,
-    GRID_N_COLS,
-    GRID_N_ROWS,
-    N_PERIODS,
-    PATH_SHAPE_PARAMS,
-    RESULTS_DIR,
-)
-from src.core.contract import DEPENDENCE_METHODS, ScenarioLayout
-from src.scenarios.generation.sets import ScenarioSetWriter
-from src.scenarios.params import ShapeParams
-from src.scenarios.spatial import cell_center, haversine_matrix, pixel_centroids, pixel_grid_cells, pixel_neighbor_pairs
+from src.core.constants import GRID_DLAT, GRID_DLON, GRID_N_COLS, GRID_N_ROWS, N_PERIODS
+from src.core.contract import DEPENDENCE_METHODS as METHODS
+from src.core.grid import GRID_X, GRID_Y, cell_center, layer_of
+from src.visualization.components.labels import METHOD_LABELS
+from src.visualization.html import PLOTLY_CDN, fig_html
 
-PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
-METHODS = DEPENDENCE_METHODS
-METHOD_LABELS = {
-    "independent": "Baseline: muestreo independiente",
-    "spatial_joint": "Enfoque paramétrico: cópula espacial",
-    "historical_bootstrap": "Enfoque empírico: bootstrap histórico conjunto",
-}
-QUANTITIES = ("stop", "drop", "demand")
-HISTORICAL_COLUMNS = {"stop": "n_customers", "drop": "drop", "demand": "model_demand"}
+
+@dataclass
+class ComparisonReportData:
+    """The paired comparison of one regime, computed by `src.scenarios.reports`."""
+
+    regime: str
+    pixels: list[str]
+    generated: dict[str, pd.DataFrame]
+    metrics: pd.DataFrame
+    neighbors: pd.DataFrame
+    distance: pd.DataFrame
+    footprints: dict[str, set[int]]
+    grid_payload: dict
+    historical_cv: float
+    n_scenarios: int
+
 
 CSS = """
 body { font-family: sans-serif; margin: 0; padding: 0; background: #f4f6f8; }
@@ -100,24 +95,14 @@ code { background: #eef2f7; padding: 1px 4px; border-radius: 3px; }
 """
 
 
-def _html(fig: go.Figure, div_id: str | None = None) -> str:
-    kwargs = {
-        "full_html": False,
-        "include_plotlyjs": False,
-        "config": {"displayModeBar": True, "displaylogo": False},
-    }
-    if div_id:
-        kwargs["div_id"] = div_id
-    return fig.to_html(**kwargs)
-
-
-def _layer_from_pixel(id_pixel: str) -> str:
-    """Extract the layer prefix from ids such as ``A-104`` or ``A_104``."""
-    return str(id_pixel).replace("_", "-").split("-", 1)[0]
-
-
-GRID_X = [GRID_LON0 + (col + 0.5) * GRID_DLON for col in range(GRID_N_COLS)]
-GRID_Y = [GRID_LAT0 + (row + 0.5) * GRID_DLAT for row in range(GRID_N_ROWS)]
+def _robust_limits(values: list[np.ndarray] | np.ndarray, lower: float = 0.01, upper: float = 0.99) -> tuple[float, float]:
+    """Use common percentile limits so a few extreme pixels do not flatten the map."""
+    flattened = np.concatenate(values) if isinstance(values, list) else np.asarray(values)
+    flattened = flattened[np.isfinite(flattened)]
+    low, high = np.quantile(flattened, [lower, upper])
+    if high <= low:
+        high = low + max(abs(low) * 0.01, 1e-6)
+    return float(low), float(high)
 
 
 def _grid_heatmap_trace(
@@ -136,7 +121,7 @@ def _grid_heatmap_trace(
     z = [[None for _ in range(GRID_N_COLS)] for _ in range(GRID_N_ROWS)]
     customdata = [[None for _ in range(GRID_N_COLS)] for _ in range(GRID_N_ROWS)]
     for pixel, cells in footprints.items():
-        if _layer_from_pixel(pixel) != layer or pixel not in values:
+        if layer_of(pixel) != layer or pixel not in values:
             continue
         value = values[pixel]
         metrics = (custom_values or {}).get(pixel, {})
@@ -180,291 +165,6 @@ def _grid_heatmap_trace(
     )
 
 
-def _historical_panel(panel: pd.DataFrame) -> pd.DataFrame:
-    included = panel[~panel["excluded"]].copy()
-    included["observation"] = list(zip(included["year"], included["month"]))
-    return included
-
-
-def _correlations(frame: pd.DataFrame, pairs: pd.DataFrame, value: str, historical: bool) -> pd.DataFrame:
-    """Correlation of normalized log values for the requested pixel pairs."""
-    if frame.empty or pairs.empty:
-        return pd.DataFrame(columns=["left", "right", "ring", "correlation"])
-    work = frame.copy()
-    if historical:
-        work["observation"] = list(zip(work["year"], work["month"]))
-    else:
-        work["observation"] = list(zip(work["id_scenario"], work["period"]))
-    work["value"] = np.log(work[value].clip(lower=1e-9))
-    work["value"] = work["value"] - work.groupby("id_pixel")["value"].transform("mean")
-    matrix = work.pivot_table(index="observation", columns="id_pixel", values="value", aggfunc="mean")
-    rows = []
-    for pair in pairs.itertuples(index=False):
-        if pair.id_pixel not in matrix or pair.neighbor not in matrix:
-            continue
-        values = matrix[[pair.id_pixel, pair.neighbor]].dropna()
-        if len(values) < 4 or values.iloc[:, 0].std() == 0 or values.iloc[:, 1].std() == 0:
-            continue
-        rows.append(
-            {
-                "left": pair.id_pixel,
-                "right": pair.neighbor,
-                "ring": int(pair.ring),
-                "correlation": float(values.iloc[:, 0].corr(values.iloc[:, 1])),
-            }
-        )
-    return pd.DataFrame(rows)
-
-
-def _conditional_high(frame: pd.DataFrame, pairs: pd.DataFrame, value: str, historical: bool) -> float:
-    """P(neighbor is high | focal pixel is high), using each pixel's p75."""
-    if frame.empty or pairs.empty:
-        return float("nan")
-    work = frame.copy()
-    work["observation"] = list(zip(work["year"], work["month"])) if historical else list(zip(work["id_scenario"], work["period"]))
-    thresholds = work.groupby("id_pixel")[value].quantile(0.75)
-    work["high"] = work[value] >= work["id_pixel"].map(thresholds)
-    matrix = work.pivot_table(index="observation", columns="id_pixel", values="high", aggfunc="mean")
-    denominator = numerator = 0
-    for pair in pairs.itertuples(index=False):
-        if pair.id_pixel not in matrix or pair.neighbor not in matrix:
-            continue
-        values = matrix[[pair.id_pixel, pair.neighbor]].dropna()
-        focal = values.iloc[:, 0].astype(bool)
-        denominator += int(focal.sum())
-        numerator += int((focal & values.iloc[:, 1].astype(bool)).sum())
-    return numerator / denominator if denominator else float("nan")
-
-
-def _pixel_period_metrics(generated: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """Per-pixel/per-period mean, standard deviation and CV across scenarios."""
-    rows = []
-    for method, frame in generated.items():
-        grouped = frame.groupby(["period", "id_pixel"])["demand"]
-        summary = grouped.agg(
-            mean_demand="mean",
-            std_demand="std",
-            p10=lambda x: x.quantile(0.1),
-            p50="median",
-            p90=lambda x: x.quantile(0.9),
-        ).reset_index()
-        averages = (
-            frame.groupby(["period", "id_pixel"])[["stop", "drop"]]
-            .mean()
-            .rename(columns={"stop": "mean_stop", "drop": "mean_drop"})
-            .reset_index()
-        )
-        summary = summary.merge(averages, on=["period", "id_pixel"], how="left")
-        summary["cv_demand"] = summary["std_demand"] / summary["mean_demand"].replace(0, np.nan)
-        summary["method"] = method
-        rows.append(summary)
-    return pd.concat(rows, ignore_index=True)
-
-
-def _distance_rows(panel: pd.DataFrame, generated: dict[str, pd.DataFrame], pixels: list[str]) -> pd.DataFrame:
-    """Correlogram by centroid distance for history and every generator."""
-    centroids = pixel_centroids().set_index("id_pixel").reindex(pixels)
-    distances = haversine_matrix(centroids["lon"].to_numpy(), centroids["lat"].to_numpy())
-    iu = np.triu_indices(len(pixels), k=1)
-    pair_distances = distances[iu]
-    edges = np.quantile(pair_distances, np.linspace(0, 1, 13))
-    edges = np.unique(edges)
-
-    def values_by_pixel(frame: pd.DataFrame, historical: bool) -> np.ndarray:
-        work = frame.copy()
-        work["observation"] = (
-            list(zip(work["year"], work["month"])) if historical else list(zip(work["id_scenario"], work["period"]))
-        )
-        work["value"] = np.log(work["demand"].clip(lower=1e-9))
-        work["value"] -= work.groupby("id_pixel")["value"].transform("mean")
-        return work.pivot_table(index="observation", columns="id_pixel", values="value").reindex(columns=pixels).to_numpy().T
-
-    history = _historical_panel(panel).rename(columns={"model_demand": "demand"})
-    frames = {"historical": (history, True), **{method: (frame, False) for method, frame in generated.items()}}
-    rows = []
-    for method, (frame, is_history) in frames.items():
-        values = values_by_pixel(frame, is_history)
-        corr = np.corrcoef(np.nan_to_num(values, nan=0.0))
-        pair_corr = corr[iu]
-        for bin_index in range(len(edges) - 1):
-            selected = (pair_distances >= edges[bin_index]) & (pair_distances <= edges[bin_index + 1])
-            if selected.any():
-                rows.append(
-                    {
-                        "method": method,
-                        "distance_bin": bin_index + 1,
-                        "distance_km": pair_distances[selected].mean(),
-                        "correlation": pair_corr[selected].mean(),
-                        "n_pairs": int(selected.sum()),
-                    }
-                )
-    return pd.DataFrame(rows)
-
-
-def _cell_polygon(cell: int) -> tuple[list[float], list[float]]:
-    lon, lat = cell_center(cell)
-    half_lon, half_lat = GRID_DLON / 2, GRID_DLAT / 2
-    return (
-        [lon - half_lon, lon + half_lon, lon + half_lon, lon - half_lon, lon - half_lon],
-        [lat - half_lat, lat - half_lat, lat + half_lat, lat + half_lat, lat - half_lat],
-    )
-
-
-def _robust_limits(values: list[np.ndarray] | np.ndarray, lower: float = 0.01, upper: float = 0.99) -> tuple[float, float]:
-    """Use common percentile limits so a few extreme pixels do not flatten the map."""
-    flattened = np.concatenate(values) if isinstance(values, list) else np.asarray(values)
-    flattened = flattened[np.isfinite(flattened)]
-    low, high = np.quantile(flattened, [lower, upper])
-    if high <= low:
-        high = low + max(abs(low) * 0.01, 1e-6)
-    return float(low), float(high)
-
-
-def _grid_trace(
-    id_pixel: str,
-    cells: set[int],
-    value: float,
-    period: int,
-    coloraxis: str,
-    colorscale: str,
-    cmin: float,
-    cmax: float,
-    hover_label: str,
-    visible: bool,
-    method: str = "",
-    metric: str = "",
-) -> go.Scatter:
-    """Draw a pixel as its actual grid-cell footprint, not as a centroid."""
-    x, y = [], []
-    for cell in sorted(cells):
-        cell_x, cell_y = _cell_polygon(cell)
-        x.extend(cell_x + [None])
-        y.extend(cell_y + [None])
-    normalized = (value - cmin) / max(cmax - cmin, 1e-12)
-    fillcolor = sample_colorscale(colorscale, [float(np.clip(normalized, 0, 1))])[0]
-    return go.Scatter(
-        x=x,
-        y=y,
-        mode="lines",
-        fill="toself",
-        hoveron="fills",
-        fillcolor=fillcolor,
-        visible=visible,
-        line=dict(color="rgba(255,255,255,.8)", width=0.55),
-        marker=dict(color=[value] * len(x), colorscale=colorscale, coloraxis=coloraxis),
-        name=id_pixel,
-        text=[id_pixel] * len(x),
-        customdata=[[id_pixel, value, period, method, metric]] * len(x),
-        hovertemplate=f"%{{text}}<br>Período {period + 1}<br>{hover_label}: %{{customdata[1]:.3f}}<extra></extra>",
-        showlegend=False,
-    )
-
-
-def _grid_hover_trace(
-    id_pixel: str,
-    cells: set[int],
-    period: int,
-    method: str,
-    metric: str,
-    value: float,
-    averages: dict[str, float],
-    visible: bool,
-) -> go.Scatter:
-    """Invisible hit-area centered on a pixel, independent of polygon-edge hover."""
-    centers = np.asarray([cell_center(cell) for cell in sorted(cells)], dtype=float)
-    lon, lat = centers.mean(axis=0)
-    customdata = [
-        [
-            id_pixel,
-            value,
-            period,
-            method,
-            metric,
-            averages.get("stop"),
-            averages.get("drop"),
-            averages.get("demand"),
-            averages.get("cv"),
-        ]
-    ]
-    return go.Scatter(
-        x=[lon],
-        y=[lat],
-        mode="markers",
-        marker=dict(size=24, color="rgba(255,255,255,.01)", line=dict(width=0)),
-        opacity=0.01,
-        visible=visible,
-        name=id_pixel,
-        customdata=customdata,
-        hovertemplate=(
-            "<b>Píxel %{customdata[0]}</b><br>"
-            "Período %{customdata[2]}<br>"
-            "Método: " + METHOD_LABELS.get(method, method) + "<br>"
-            "Promedio stop: %{customdata[5]:.2f}<br>"
-            "Promedio drop: %{customdata[6]:.2f}<br>"
-            "Promedio demanda: %{customdata[7]:.2f}<br>"
-            "CV demanda: %{customdata[8]:.3f}<extra></extra>"
-        ),
-        showlegend=False,
-    )
-
-
-def _pixel_grid_subplot(
-    frame: pd.DataFrame,
-    pixels: list[str],
-    footprints: dict[str, set[int]],
-    method: str,
-) -> go.Figure:
-    """Compact two-panel grid view: mean demand and per-pixel CV."""
-    mean_values = frame.groupby(["period", "id_pixel"])["demand"].mean()
-    grouped = frame.groupby(["period", "id_pixel"])["demand"]
-    cv_values = grouped.std() / grouped.mean().replace(0, np.nan)
-    all_mean = mean_values.to_numpy()
-    all_cv = cv_values.replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Demanda media por píxel", "CV por píxel"), horizontal_spacing=0.08)
-    for period in range(N_PERIODS):
-        for col, values, coloraxis, colorscale, label in (
-            (1, mean_values, "coloraxis", "Viridis", "Demanda media"),
-            (2, cv_values, "coloraxis2", "YlOrRd", "CV entre escenarios"),
-        ):
-            for id_pixel in pixels:
-                value = float(values.get((period, id_pixel), np.nan))
-                fig.add_trace(
-                    _grid_trace(
-                        id_pixel,
-                        footprints[id_pixel],
-                        value,
-                        period,
-                        coloraxis,
-                        colorscale,
-                        float(np.nanmin(all_mean)) if col == 1 else 0.0,
-                        float(np.nanmax(all_mean)) if col == 1 else max(float(np.nanmax(all_cv)), 0.1),
-                        label,
-                        period == 0,
-                    ),
-                    row=1,
-                    col=col,
-                )
-    fig.update_layout(
-        title=f"{METHOD_LABELS[method]}",
-        height=520,
-        margin=dict(l=25, r=25, t=100, b=35),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        coloraxis=dict(
-            cmin=float(np.nanmin(all_mean)),
-            cmax=float(np.nanmax(all_mean)),
-            colorscale="Viridis",
-            colorbar=dict(title="Demanda", x=0.46),
-        ),
-        coloraxis2=dict(cmin=0, cmax=max(float(np.nanmax(all_cv)), 0.1), colorscale="YlOrRd", colorbar=dict(title="CV", x=1.02)),
-    )
-    for axis in ("xaxis", "xaxis2"):
-        fig.layout[axis].update(showgrid=True, gridcolor="#e5e7eb", scaleanchor="y" if axis == "xaxis" else "y2")
-    for axis in ("yaxis", "yaxis2"):
-        fig.layout[axis].update(showgrid=True, gridcolor="#e5e7eb")
-    return fig
-
-
 def _all_methods_grid_figure(
     generated: dict[str, pd.DataFrame],
     pixels: list[str],
@@ -472,7 +172,7 @@ def _all_methods_grid_figure(
     inspector_payload: dict | None = None,
 ) -> tuple[go.Figure, dict[str, int], dict[str, int]]:
     """3×3 dashboard: each row is a method; columns are demand, CV and neighbors."""
-    layers = sorted({_layer_from_pixel(pixel) for pixel in pixels})
+    layers = sorted({layer_of(pixel) for pixel in pixels})
     titles = [
         title
         for method in METHODS
@@ -522,7 +222,7 @@ def _all_methods_grid_figure(
                     values = {
                         pixel: summary.get((period, pixel), {}).get(metric)
                         for pixel in pixels
-                        if _layer_from_pixel(pixel) == layer and summary.get((period, pixel), {}).get(metric) is not None
+                        if layer_of(pixel) == layer and summary.get((period, pixel), {}).get(metric) is not None
                     }
                     custom_values = {pixel: summary.get((period, pixel), {}) for pixel in values}
                     fig.add_trace(
@@ -568,7 +268,7 @@ def _all_methods_grid_figure(
                     metrics.get("drop"),
                     metrics.get("demand"),
                     metrics.get("cv"),
-                    _layer_from_pixel(pixel),
+                    layer_of(pixel),
                 ]
         local_trace_indices[method] = len(fig.data)
         fig.add_trace(
@@ -646,87 +346,6 @@ def _all_methods_grid_figure(
     fig.layout.xaxis9.update(title="Longitud")
     fig.layout.yaxis9.update(title="Latitud")
     return fig, local_trace_indices, focus_trace_indices
-
-
-def _grid_inspector_payload(
-    generated: dict[str, pd.DataFrame],
-    pixels: list[str],
-    footprints: dict[str, set[int]] | None = None,
-) -> dict:
-    """Serialize the local neighborhood metrics used by the grid hover panel."""
-    metrics = _pixel_period_metrics(generated)
-
-    def finite(value):
-        value = float(value)
-        return round(value, 6) if np.isfinite(value) else None
-
-    footprints = footprints or pixel_grid_cells()
-    payload = {
-        "labels": METHOD_LABELS,
-        "pixel_order": pixels,
-        "pixel_index": {pixel: index for index, pixel in enumerate(pixels)},
-        "layers": {pixel: _layer_from_pixel(pixel) for pixel in pixels},
-        "grid": {
-            "rows": GRID_N_ROWS,
-            "cols": GRID_N_COLS,
-            "x": GRID_X,
-            "y": GRID_Y,
-            "pixel_cells": {pixel: [int(cell) for cell in sorted(footprints.get(pixel, set()))] for pixel in pixels},
-            "centers": {
-                pixel: np.asarray([cell_center(cell) for cell in footprints.get(pixel, set())], dtype=float).mean(axis=0).tolist()
-                for pixel in pixels
-                if footprints.get(pixel)
-            },
-        },
-        "methods": {},
-        "neighbors": {pixel: [] for pixel in pixels},
-        "relative_cv": {},
-    }
-    for method in METHODS:
-        payload["methods"][method] = {}
-        view = metrics[metrics["method"] == method]
-        for period in range(N_PERIODS):
-            period_view = view[view["period"] == period].set_index("id_pixel")
-            payload["methods"][method][str(period)] = {
-                pixel: {
-                    "stop": finite(period_view.loc[pixel, "mean_stop"]),
-                    "drop": finite(period_view.loc[pixel, "mean_drop"]),
-                    "demand": finite(period_view.loc[pixel, "mean_demand"]),
-                    "cv": finite(period_view.loc[pixel, "cv_demand"]),
-                }
-                for pixel in pixels
-                if pixel in period_view.index
-            }
-
-    # CV of demand(target) / demand(focal), evaluated over paired scenarios.
-    # This is the spatial relationship requested by the local subplot: zero for
-    # the focal pixel and larger values for less stable co-movement.
-    for method, frame in generated.items():
-        payload["relative_cv"][method] = {}
-        for period in range(N_PERIODS):
-            matrix = (
-                frame[frame["period"] == period]
-                .pivot(index="id_scenario", columns="id_pixel", values="demand")
-                .reindex(columns=pixels)
-                .to_numpy(dtype=float)
-            )
-            relative = np.full((len(pixels), len(pixels)), np.nan)
-            for focal_index in range(len(pixels)):
-                focal = matrix[:, focal_index]
-                ratios = matrix / focal[:, None]
-                mean = np.nanmean(ratios, axis=0)
-                std = np.nanstd(ratios, axis=0, ddof=1)
-                relative[focal_index] = std / np.where(np.abs(mean) > 1e-12, mean, np.nan)
-                relative[focal_index, focal_index] = 0.0
-            payload["relative_cv"][method][str(period)] = {
-                pixel: [round(float(value), 6) if np.isfinite(value) else None for value in relative[focal_index]]
-                for focal_index, pixel in enumerate(pixels)
-            }
-
-    for pair in pixel_neighbor_pairs(pixels=pixels, ring=1).itertuples(index=False):
-        payload["neighbors"][pair.id_pixel].append(pair.neighbor)
-        payload["neighbors"][pair.neighbor].append(pair.id_pixel)
-    return payload
 
 
 def _grid_inspector_html(payload: dict) -> str:
@@ -929,7 +548,7 @@ def _delta_map_figure(
     delta = (alternative - baseline).rename("value")
     relative = (delta / baseline.replace(0, np.nan)).rename("value")
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Diferencia absoluta", "Diferencia relativa"), horizontal_spacing=0.08)
-    layers = sorted({_layer_from_pixel(pixel) for pixel in pixels})
+    layers = sorted({layer_of(pixel) for pixel in pixels})
     limit = float(np.nanquantile(np.abs(delta.to_numpy()), 0.98)) or 1.0
     rel_limit = float(np.nanquantile(np.abs(relative.to_numpy()), 0.98)) or 1.0
     for period in range(N_PERIODS):
@@ -941,7 +560,7 @@ def _delta_map_figure(
                 layer_values = {
                     pixel: float(values.get((period, pixel), np.nan))
                     for pixel in pixels
-                    if _layer_from_pixel(pixel) == layer and np.isfinite(values.get((period, pixel), np.nan))
+                    if layer_of(pixel) == layer and np.isfinite(values.get((period, pixel), np.nan))
                 }
                 custom_values = {pixel: {"demand": value} for pixel, value in layer_values.items()}
                 fig.add_trace(
@@ -1030,87 +649,6 @@ def _fig_distance(distance: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def _metric_rows(panel: pd.DataFrame, generated: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    historical = _historical_panel(panel)
-    rows = []
-    for quantity in QUANTITIES:
-        hist = historical[HISTORICAL_COLUMNS[quantity]].astype(float)
-        for method, frame in generated.items():
-            values = frame[quantity].astype(float)
-            rows.append(
-                {
-                    "metric": "marginal",
-                    "quantity": quantity,
-                    "method": method,
-                    "historical_mean": hist.mean(),
-                    "generated_mean": values.mean(),
-                    "relative_mean_error": values.mean() / hist.mean() - 1,
-                    "historical_std": hist.std(ddof=1),
-                    "generated_std": values.std(ddof=1),
-                    "std_ratio": values.std(ddof=1) / hist.std(ddof=1),
-                    "historical_p10": hist.quantile(0.10),
-                    "generated_p10": values.quantile(0.10),
-                    "historical_p50": hist.quantile(0.50),
-                    "generated_p50": values.quantile(0.50),
-                    "historical_p90": hist.quantile(0.90),
-                    "generated_p90": values.quantile(0.90),
-                }
-            )
-
-        historical_agg = historical.groupby("observation")[HISTORICAL_COLUMNS[quantity]].sum()
-        for method, frame in generated.items():
-            aggregate = frame.groupby(["id_scenario", "period"])[quantity].sum()
-            rows.append(
-                {
-                    "metric": "aggregate_cv",
-                    "quantity": quantity,
-                    "method": method,
-                    "historical_mean": historical_agg.mean(),
-                    "generated_mean": aggregate.mean(),
-                    "historical_std": historical_agg.std(ddof=1),
-                    "generated_std": aggregate.std(ddof=1),
-                    "historical_cv": historical_agg.std(ddof=1) / historical_agg.mean(),
-                    "generated_cv": aggregate.std(ddof=1) / aggregate.mean(),
-                }
-            )
-    return pd.DataFrame(rows)
-
-
-def _neighbor_rows(panel: pd.DataFrame, generated: dict[str, pd.DataFrame], pixels: list[str]) -> pd.DataFrame:
-    historical = _historical_panel(panel)
-    rows = []
-    for ring in (1, 2):
-        pairs = pixel_neighbor_pairs(pixels=pixels, ring=ring)
-        for quantity in QUANTITIES:
-            hist_corr = _correlations(historical, pairs, HISTORICAL_COLUMNS[quantity], historical=True)
-            if not hist_corr.empty:
-                rows.append(
-                    {
-                        "metric": "neighbor_correlation",
-                        "quantity": quantity,
-                        "method": "historical",
-                        "ring": ring,
-                        "mean_correlation": hist_corr["correlation"].mean(),
-                        "n_pairs": len(hist_corr),
-                        "high_given_high": _conditional_high(historical, pairs, HISTORICAL_COLUMNS[quantity], historical=True),
-                    }
-                )
-            for method, frame in generated.items():
-                corr = _correlations(frame, pairs, quantity, historical=False)
-                rows.append(
-                    {
-                        "metric": "neighbor_correlation",
-                        "quantity": quantity,
-                        "method": method,
-                        "ring": ring,
-                        "mean_correlation": corr["correlation"].mean() if not corr.empty else np.nan,
-                        "n_pairs": len(corr),
-                        "high_given_high": _conditional_high(frame, pairs, quantity, historical=False),
-                    }
-                )
-    return pd.DataFrame(rows)
-
-
 def _summary_table(metrics: pd.DataFrame, neighbors: pd.DataFrame) -> str:
     marginal = metrics[metrics["metric"] == "marginal"].copy()
     marginal["Método"] = marginal["method"].map(METHOD_LABELS)
@@ -1194,81 +732,10 @@ def _fig_cv(metrics: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def build_comparison_report(
-    regime: str = "normal",
-    version: str = DEFAULT_SCENARIO_VERSION,
-    output_path: Path | None = None,
-) -> Path:
-    """Build HTML and tabular artifacts for one regime's paired comparison."""
-    params = ShapeParams.load(PATH_SHAPE_PARAMS)
-    panel_path = PATH_SHAPE_PARAMS.parent / "panel_monthly.csv"
-    panel = pd.read_csv(panel_path)
-    writer = ScenarioSetWriter(ScenarioLayout.for_comparison(version))
-    generated = {method: writer.load_long(regime, "validation", method) for method in METHODS}
-    if any(frame.empty for frame in generated.values()):
-        raise ValueError("Comparison scenarios are missing; run src.scenarios.cli.compare first.")
-
-    output_dir = output_path.parent if output_path else RESULTS_DIR / "comparison" / version / regime
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_path or output_dir / "demand_comparison.html"
-
-    generated_long = pd.concat(generated.values(), ignore_index=True)
-    historical_long = (
-        _historical_panel(panel)
-        .rename(columns={"n_customers": "stop", "model_demand": "demand"})[
-            ["year", "month", "id_pixel", "stop", "drop", "demand"]
-        ]
-        .copy()
-    )
-    historical_long["method"] = "historical"
-    historical_long["regime"] = "historical"
-    historical_long["id_scenario"] = historical_long.apply(
-        lambda row: f"historical-{int(row['year'])}-{int(row['month']):02d}", axis=1
-    )
-    historical_long["period"] = historical_long["month"] - 1
-    long = pd.concat([generated_long, historical_long], ignore_index=True, sort=False)
-    long.to_csv(output_dir / "comparison_long.csv", index=False)
-    metrics = _metric_rows(panel, generated)
-    pixels = list(params["pixels"])
-    neighbors = _neighbor_rows(panel, generated, pixels)
-    pixel_period = _pixel_period_metrics(generated)
-    distance = _distance_rows(panel, generated, pixels)
-    metrics.to_csv(output_dir / "metrics.csv", index=False)
-    neighbors.to_csv(output_dir / "neighbor_metrics.csv", index=False)
-    pixel_period.to_csv(output_dir / "pixel_period_metrics.csv", index=False)
-    distance.to_csv(output_dir / "distance_metrics.csv", index=False)
-    footprints = pixel_grid_cells()
-
-    paired_differences = {}
-    for method in METHODS[1:]:
-        pair = generated["independent"].merge(
-            generated[method], on=["id_scenario", "id_pixel", "period"], suffixes=("_independent", f"_{method}")
-        )
-        paired_differences[method] = float((pair["demand_independent"] - pair[f"demand_{method}"]).abs().mean())
-    paired_summary = {
-        "regime": regime,
-        "version": version,
-        "n_rows": int(len(long)),
-        "n_scenarios": int(generated_long["id_scenario"].nunique()),
-        "mean_absolute_demand_difference_vs_independent": paired_differences,
-        "aggregate_cv": {
-            row["method"]: float(row["generated_cv"])
-            for _, row in metrics[(metrics["metric"] == "aggregate_cv") & (metrics["quantity"] == "demand")].iterrows()
-        },
-        "first_ring_demand_correlation": {
-            row["method"]: float(row["mean_correlation"])
-            for _, row in neighbors[
-                (neighbors["metric"] == "neighbor_correlation") & (neighbors["quantity"] == "demand") & (neighbors["ring"] == 1)
-            ].iterrows()
-        },
-    }
-    (output_dir / "summary.json").write_text(json.dumps(paired_summary, indent=2))
-
-    historical = _historical_panel(panel)
-    hist_cv = (
-        historical.groupby("observation")["model_demand"].sum().std(ddof=1)
-        / historical.groupby("observation")["model_demand"].sum().mean()
-    )
+def render(data: ComparisonReportData, output_path: Path) -> Path:
+    regime, pixels, generated = data.regime, data.pixels, data.generated
+    metrics, neighbors, distance, footprints = data.metrics, data.neighbors, data.distance, data.footprints
+    hist_cv = data.historical_cv
     spatial_neighbor = neighbors[
         (neighbors["method"] == "spatial_joint") & (neighbors["quantity"] == "demand") & (neighbors["ring"] == 1)
     ]["mean_correlation"].iloc[0]
@@ -1276,14 +743,14 @@ def build_comparison_report(
         (neighbors["method"] == "independent") & (neighbors["quantity"] == "demand") & (neighbors["ring"] == 1)
     ]["mean_correlation"].iloc[0]
 
-    grid_payload = _grid_inspector_payload(generated, pixels, footprints)
+    grid_payload = {"labels": METHOD_LABELS, **data.grid_payload}
     grid_figure, local_trace_indices, focus_trace_indices = _all_methods_grid_figure(
         generated, pixels, footprints, inspector_payload=grid_payload
     )
     grid_payload["local_trace_indices"] = local_trace_indices
     grid_payload["focus_trace_indices"] = focus_trace_indices
-    grid_figure_html = _html(grid_figure, div_id="grid-dashboard")
-    layers = sorted({_layer_from_pixel(pixel) for pixel in pixels})
+    grid_figure_html = fig_html(grid_figure, div_id="grid-dashboard")
+    layers = sorted({layer_of(pixel) for pixel in pixels})
     grid_trace_layers = [layer for method in METHODS for _metric in ("demand", "cv") for layer in layers]
     period_configs = [
         {
@@ -1315,7 +782,7 @@ def build_comparison_report(
         )
         map_sections.append(
             f'<div class="subsection"><h3>Diferencia contra baseline: {METHOD_LABELS[method]}</h3>'
-            f'{_html(_delta_map_figure(generated, method, pixels, footprints, METHOD_LABELS[method] + " — diferencia vs baseline"), div_id=delta_id)}</div>'
+            f'{fig_html(_delta_map_figure(generated, method, pixels, footprints, METHOD_LABELS[method] + " — diferencia vs baseline"), div_id=delta_id)}</div>'
         )
     period_control = _global_period_control_html(period_configs, layers)
 
@@ -1342,16 +809,16 @@ def build_comparison_report(
 <html lang="es"><head><meta charset="utf-8"><title>Comparación de enfoques de demanda espacial</title>
 <script src="{PLOTLY_CDN}"></script><style>{CSS}</style></head><body>
 <div id="top-bar"><h1>Comparación: independencia vs dependencia espacial</h1>
-<p>Régimen {regime} · {len(params['pixels'])} píxeles · {N_PERIODS} períodos ·
-{generated_long['id_scenario'].nunique()} escenarios pareados · panel histórico usado como referencia.</p></div>
+<p>Régimen {regime} · {len(pixels)} píxeles · {N_PERIODS} períodos ·
+{data.n_scenarios} escenarios pareados · panel histórico usado como referencia.</p></div>
 {period_control}
 {methods_section}
 <div class="section"><p>Se comparan tres formas de generar escenarios: un baseline sin dependencia espacial, un modelo paramétrico que calibra una cópula espacial y un modelo empírico que remuestrea configuraciones históricas completas. El baseline es estrictamente independiente entre píxeles; la varianza del shock común se incorpora a la dispersión individual para conservar la marginal.</p>{_summary_table(metrics, neighbors)}</div>
 <div class="section"><h2>Mapas por píxel y período</h2><p>Usa el selector global fijo de arriba para cambiar simultáneamente todos los mapas. La demanda muestra el promedio entre escenarios; el CV por píxel mide la variación entre escenarios para ese período. Los mapas de diferencia muestran cuánto cambia cada píxel respecto del baseline independiente.</p>{''.join(map_sections)}</div>
-<div class="section"><h2>¿Los vecinos se mueven juntos?</h2><p>La correlación se calcula sobre log-demanda centrada por píxel. El <strong>anillo 1</strong> contiene píxeles cuyas huellas comparten directamente un borde de celda en la grilla. La <strong>vecindad de hasta 2 saltos</strong> contiene esos vecinos directos más los píxeles que se alcanzan pasando por un píxel intermedio; por eso es una vecindad acumulada, no un anillo exacto que excluya el primero.</p>{_html(_fig_neighbor(neighbors))}<p>En el anillo 1, el baseline independiente obtiene {independent_neighbor:.3f} y el enfoque paramétrico obtiene {spatial_neighbor:.3f}; el histórico entrega la referencia empírica disponible.</p></div>
-<div class="section"><h2>Correlograma continuo</h2><p>La correlación se calcula para todos los pares y se agrupa por distancia entre centroides. Permite verificar si el efecto se concentra en vecinos cercanos o permanece a escala urbana.</p>{_html(_fig_distance(distance))}</div>
-<div class="section"><h2>Riesgo de demanda agregada</h2><p>El CV mide cuánto varía la suma de demanda de los píxeles por período. Un modelo independiente tiende a cancelar el ruido específico de cada píxel.</p>{_html(_fig_cv(metrics))}<p>CV histórico: {hist_cv:.3f}. Los valores exactos quedan en <code>metrics.csv</code>.</p></div>
-<div class="section"><h2>CV por período</h2><p>La línea muestra si las alternativas cambian el riesgo agregado de manera distinta según el período del horizonte.</p>{_html(_fig_period_cv(generated))}</div>
+<div class="section"><h2>¿Los vecinos se mueven juntos?</h2><p>La correlación se calcula sobre log-demanda centrada por píxel. El <strong>anillo 1</strong> contiene píxeles cuyas huellas comparten directamente un borde de celda en la grilla. La <strong>vecindad de hasta 2 saltos</strong> contiene esos vecinos directos más los píxeles que se alcanzan pasando por un píxel intermedio; por eso es una vecindad acumulada, no un anillo exacto que excluya el primero.</p>{fig_html(_fig_neighbor(neighbors))}<p>En el anillo 1, el baseline independiente obtiene {independent_neighbor:.3f} y el enfoque paramétrico obtiene {spatial_neighbor:.3f}; el histórico entrega la referencia empírica disponible.</p></div>
+<div class="section"><h2>Correlograma continuo</h2><p>La correlación se calcula para todos los pares y se agrupa por distancia entre centroides. Permite verificar si el efecto se concentra en vecinos cercanos o permanece a escala urbana.</p>{fig_html(_fig_distance(distance))}</div>
+<div class="section"><h2>Riesgo de demanda agregada</h2><p>El CV mide cuánto varía la suma de demanda de los píxeles por período. Un modelo independiente tiende a cancelar el ruido específico de cada píxel.</p>{fig_html(_fig_cv(metrics))}<p>CV histórico: {hist_cv:.3f}. Los valores exactos quedan en <code>metrics.csv</code>.</p></div>
+<div class="section"><h2>CV por período</h2><p>La línea muestra si las alternativas cambian el riesgo agregado de manera distinta según el período del horizonte.</p>{fig_html(_fig_period_cv(generated))}</div>
 <div class="section"><h2>Archivos para análisis externo</h2><p><code>comparison_long.csv</code> contiene cada método, escenario, píxel, período, stop, drop y demand. <code>pixel_period_metrics.csv</code> contiene media, desviación, cuantiles y CV por píxel-período. <code>neighbor_metrics.csv</code> contiene correlaciones y probabilidades de co-excedencia por anillo. <code>distance_metrics.csv</code> contiene el correlograma continuo. <code>summary.json</code> resume la comparación pareada y las ganancias contra el baseline.</p></div>
 </body></html>"""
     output_path.write_text(html)

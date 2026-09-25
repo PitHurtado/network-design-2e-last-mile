@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
-from src.scenarios.reports.explore import build_report
+from src.scenarios.reports import build_explore_report
 
 
 def main() -> None:
@@ -24,7 +24,7 @@ def main() -> None:
     args = parser.parse_args()
 
     output_path = Path(args.output) if args.output else None
-    path = build_report(args.regimes, output_path, version=args.version)
+    path = build_explore_report(args.regimes, output_path, version=args.version)
     print(f"\nReporte: {path}")
     print(f"Abrir con: open {path}")
 

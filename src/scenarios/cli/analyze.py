@@ -10,7 +10,7 @@ import argparse
 import sys
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, REGIMES
-from src.scenarios.reports.scenarios import build_report
+from src.scenarios.reports import build_validation_report
 from src.tools.logging import get_logger
 
 logger = get_logger("AnalyzeScenarios")
@@ -22,7 +22,7 @@ def main() -> None:
     parser.add_argument("--version", default=DEFAULT_SCENARIO_VERSION, help="scenario version whose validation set is analyzed")
     args = parser.parse_args()
 
-    path, n_failed = build_report(args.regimes, version=args.version)
+    path, n_failed = build_validation_report(args.regimes, version=args.version)
     print(f"\nReporte: {path}")
     print(f"Abrir con: open {path}")
 

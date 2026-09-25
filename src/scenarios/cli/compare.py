@@ -8,12 +8,13 @@ import argparse
 from pathlib import Path
 
 from src.core.constants import DEFAULT_SCENARIO_VERSION, PATH_SHAPE_PARAMS, REGIMES, SEED_BASE
+from src.core.contract import DEPENDENCE_METHODS as METHODS
 from src.core.contract import ScenarioLayout
 from src.scenarios.fitting.panel import load_panel
 from src.scenarios.generation.generator import ScenarioGenerator
 from src.scenarios.generation.sets import ScenarioSetWriter, SetSpec
 from src.scenarios.params import ShapeParams
-from src.scenarios.reports.comparison import METHODS, build_comparison_report
+from src.scenarios.reports import build_comparison_report
 
 
 def main() -> None:

@@ -18,19 +18,14 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import least_squares
 
-from src.core.constants import GRID_DLAT, GRID_DLON, GRID_LAT0, GRID_LON0, GRID_N_COLS, GRID_N_ROWS
+from src.core.constants import GRID_N_COLS, GRID_N_ROWS
+from src.core.grid import cell_center
 from src.scenarios.crosswalk import build_footprints, load_manual_crosswalk
 from src.tools.logging import get_logger
 
 logger = get_logger("Spatial")
 
 EARTH_RADIUS_KM = 6371.0
-
-
-def cell_center(cell: int) -> tuple[float, float]:
-    """Geometric centre (lon, lat) of a grid cell."""
-    row, col = divmod(int(cell), GRID_N_COLS)
-    return GRID_LON0 + (col + 0.5) * GRID_DLON, GRID_LAT0 + (row + 0.5) * GRID_DLAT
 
 
 def pixel_centroids(crosswalk: pd.DataFrame | None = None) -> pd.DataFrame:

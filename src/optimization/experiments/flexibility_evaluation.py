@@ -126,8 +126,14 @@ def evaluate_experiment(version, regimes, flexibilities, solution_cases, time_li
                 key = (flexibility, regime, tuple(sorted(fixed.items())))
                 if key not in cache:
                     output = evaluate_one(
-                        version, regime, flexibility, solution_case, time_limit,
-                        source_root=source_root, output_root=output_root, overwrite=overwrite,
+                        version,
+                        regime,
+                        flexibility,
+                        solution_case,
+                        time_limit,
+                        source_root=source_root,
+                        output_root=output_root,
+                        overwrite=overwrite,
                     )
                     cache[key] = output
                 else:
