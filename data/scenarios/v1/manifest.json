@@ -1,0 +1,145 @@
+{
+  "kind": "scenarios",
+  "id": "v1",
+  "command": {
+    "program": "scenarios",
+    "subcommand": "generate",
+    "argv": [
+      "generate",
+      "--params",
+      "p1"
+    ],
+    "config": {
+      "params": "p1",
+      "regimes": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "optimization_n": 30,
+      "validation_n": 100,
+      "seed_base": 20260908,
+      "capacity_n": 100
+    }
+  },
+  "inputs": {
+    "raw": [
+      {
+        "path": "data/raw_pixel/input_pixels.xlsx",
+        "sha256": "5ac0d5d2cb0fbed544c595bc25e3378cc7c1d182ff2d347d69c3c7519b6909b6",
+        "bytes": 17290
+      },
+      {
+        "path": "data/raw_pixel/customer_pixel_layer.csv",
+        "sha256": "ffd69183027e7b69f03d564f5673d3c378cbf33d113b3a736920a09ab9a77990",
+        "bytes": 6139805
+      }
+    ],
+    "parents": [
+      {
+        "kind": "params",
+        "id": "p1",
+        "manifest_sha256": "eaa3a9dbebc10eb1d87f5a753b18d42d224140099d828592ade4c4e8cd7b82f5",
+        "content_sha256": "5850f36e60d234e0e6bf66429be2d2e20be2f87cd0f616ac13196e45b8f506ff"
+      }
+    ]
+  },
+  "seeds": {
+    "seed_base": 20260908,
+    "scheme": "SeedSequence([seed_base, set_code]).spawn(index); set_code optimization=30, validation=100"
+  },
+  "details": {
+    "params": "p1",
+    "dependence": "spatial_joint",
+    "periods": 12,
+    "sets": {
+      "low": {
+        "optimization": {
+          "n": 30,
+          "manifest_sha256": "1e8a0cc069c55cf91ece7b8234c831ac2c22572a7717283d5b25473f7a3f20dc"
+        },
+        "validation": {
+          "n": 100,
+          "manifest_sha256": "c933dd1717ac5df930492bf2554730f37e06cdae9e86363f8a62d5b45b538bce"
+        },
+        "expected": {
+          "n": 1,
+          "manifest_sha256": "f6a88ecb6d40c7539daa49ee093829571828e846ec30ead71eb88385a066b3e6"
+        },
+        "annual_expected": {
+          "n": 1,
+          "manifest_sha256": "2f68607cb6ddca5ecf0eb456586bdb14abe5b33f1579331616b6c9f834e2e6c3"
+        },
+        "capacity": {
+          "n": 100,
+          "manifest_sha256": "17d15772c6ab36678e92b1085cf5826ec6d8d0a96bd8684efa5469ae77f3805c"
+        }
+      },
+      "normal": {
+        "optimization": {
+          "n": 30,
+          "manifest_sha256": "135bc41235519883fa7bbf221848dc6533388a94a29edd97a83b7065722facb0"
+        },
+        "validation": {
+          "n": 100,
+          "manifest_sha256": "ceee4b1e32c620b08400646d9185b3f6cf4a45d5b84572522e5165f17cacdcf9"
+        },
+        "expected": {
+          "n": 1,
+          "manifest_sha256": "ffd5fd8b6077364ef57f726095af026ffe0cedfeaf3616bd6d39d409b1e17077"
+        },
+        "annual_expected": {
+          "n": 1,
+          "manifest_sha256": "fd92109a2e20774689fb0fd312e6845f933c5eec65483468520fbb6b34b23a7f"
+        },
+        "capacity": {
+          "n": 100,
+          "manifest_sha256": "8fa153bdd2e85fa62708034713a9c99f08b52782c42d43c207d1a405a5e8173b"
+        }
+      },
+      "high": {
+        "optimization": {
+          "n": 30,
+          "manifest_sha256": "b89efda36df74dcc79bedc9cddca0eb171379b6dbf92ed1ff35b36b5db7c4585"
+        },
+        "validation": {
+          "n": 100,
+          "manifest_sha256": "494742a488774ec095446dc3b680f18fb24ed8f9dbef66d701936d93ec11508e"
+        },
+        "expected": {
+          "n": 1,
+          "manifest_sha256": "c0b75f9df2d23eaef559206cc19648d8837cf35961002ce4c1ad4abefe8fe1f6"
+        },
+        "annual_expected": {
+          "n": 1,
+          "manifest_sha256": "ea06ac9550db39da7ec66082ad22587c8c957a8130041deb5663574823838233"
+        },
+        "capacity": {
+          "n": 100,
+          "manifest_sha256": "8d4cffb2fe929503ab4154e7a67a2a51e7a28765285c755e758170e46ef8bfc2"
+        }
+      }
+    }
+  },
+  "code": {
+    "git_commit": "2363dc7cc2bbe00c1327b28e449a78f2f9e5c4f5",
+    "git_dirty": false
+  },
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "scipy": "1.15.3",
+    "plotly": "6.7.0",
+    "gurobipy": "13.0.1",
+    "platform": "macOS-26.7-arm64-arm-64bit"
+  },
+  "content": {
+    "sha256": "79271a6b10982ad52aa69395b63253ac3d06b206a36dae6aa87d09cc679d6496",
+    "n_files": 711
+  },
+  "created_at": "2026-09-25T12:05:49-0300",
+  "promoted_from": "cv-20260925-120539",
+  "promoted_at": "2026-09-25T12:06:10-0300",
+  "schema_version": 2
+}

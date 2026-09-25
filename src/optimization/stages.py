@@ -5,7 +5,7 @@
 
 A run holds one experiment:
 
-    flexibility/<v>/<flex>/<regime>/<case>/result.json                  optimize flexibility --scenarios v2 --facilities f1
+    flexibility/<v>/<flex>/<regime>/<case>/result.json                  optimize flexibility --scenarios v1 --facilities f1
     flexibility_evaluation/<v>/<flex>/<regime>/<case>/evaluation.json   optimize evaluate --run r1
     flexibility_validation_benchmark/<v>/<flex>/<regime>/rp_validation.json   optimize benchmark ...
 

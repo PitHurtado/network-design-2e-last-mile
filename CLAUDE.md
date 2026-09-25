@@ -10,9 +10,11 @@ Continuous Approximation. Research code for a paper.
 
 Branch `feature/refactor-and-cleaning`: the OOP refactor is done. `src/` is six packages
 with a one-way dependency graph, every artifact is versioned (candidate → validate →
-promote), and golden tests pin the numbers. Official versions today: params `p1`;
-scenarios `v1` (value-identical to the pre-refactor `shape_params` v3 / scenarios `v3`)
-and `v2` (= `v1` + the `capacity` set); satellite capacity table `f1` (from `v2`).
+promote), and golden tests pin the numbers. Official versions today: params `p1`,
+scenarios `v1` (its optimization / validation / expected / annual_expected sets are
+value-identical to the pre-refactor scenarios `v3`, plus the `capacity` set) and the
+satellite capacity table `f1` (from `v1`). Versions were reset once; the previous
+numbering is in `data/_archive/2026-09-25-pre-reset/`.
 No official optimization run exists yet (`r1` is pending).
 
 ```
@@ -79,12 +81,12 @@ scenarios validate <ref> | promote <ref> | list | show <ref>
 ### Optimization
 
 ```bash
-optimize capacity analyze --scenarios v2 [--levels percentiles-a|percentiles-b|fixed-grid]   # -> cf-*
-optimize flexibility --scenarios v2 --facilities f1 [--model flex|capacitated|uncapacitated] [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
+optimize capacity analyze --scenarios v1 [--levels percentiles-a|percentiles-b|fixed-grid]   # -> cf-*
+optimize flexibility --scenarios v1 --facilities f1 [--model flex|capacitated|uncapacitated] [--regimes ...] [--flexibilities ...] [--cases ...] [--threads 1 --seed 0]
 optimize evaluate --run r1            # fixed-Y recourse on validation (with r1's facilities table)
-optimize benchmark --scenarios v2 --facilities f1   # RP_100 for the theoretical VSS
+optimize benchmark --scenarios v1 --facilities f1   # RP_100 for the theoretical VSS
 optimize report <run|fN> [--benchmark <run>]
-optimize verify --scenarios v2 --n 3  # CA + Gurobi smoke test
+optimize verify --scenarios v1 --n 3  # CA + Gurobi smoke test
 optimize validate <ref> | promote <ref> | list | show <ref>    # ref: cf-*/fN or cr-*/rN
 ```
 
@@ -130,7 +132,7 @@ data/scenarios/v<N>/      <regime>/<set>/{scenario_*.json (gitignored), manifest
 data/facilities/f<N>/     capacity.json, peak_fleet.csv, assignment.json, manifest.json, validation.json, reports/
 results/runs/r<N>/        <experiment>/<v>/<flex>/<regime>[/<case>]/<leaf>.json, manifest.json, validation.json, reports/
 data/sandbox/{params,scenarios,facilities,comparisons}/  results/sandbox/runs/   candidates: cp-/cv-/cf-/cc-/cr-<timestamp>
-data/_archive/2026-09-25/  results/_archive/2026-09-25/                everything before versioning (v2, v3, vcompare*)
+data/_archive/2026-09-25/  results/_archive/2026-09-25/                everything before versioning (old v2, v3, vcompare*)
 ```
 
 - `manifest.json`: command + resolved config, sha256 of every raw input, parents (id +

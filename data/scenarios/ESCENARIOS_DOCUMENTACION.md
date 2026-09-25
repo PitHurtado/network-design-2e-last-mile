@@ -1,6 +1,6 @@
 # Escenarios de demanda — documentación
 
-**Versión oficial vigente:** parámetros `p1`, escenarios `v2` (= `v1` + set `capacity`; los sets de `v1` son idénticos en valores a los antiguos `shape_params` v3 / escenarios `v3`, hoy en `data/_archive/`)
+**Versión oficial vigente:** parámetros `p1`, escenarios `v1` (sus sets optimization / validation / expected / annual_expected son idénticos en valores a los antiguos escenarios `v3`, hoy en `data/_archive/`; además trae el set `capacity`) y tabla de capacidad `f1`
 **Código:** `src/scenarios/` (`fitting/`, `generation/`, `validation/`, `stages.py`, `cli.py`); el contrato en disco está en `src/core/contract.py` y los lectores de inputs crudos en `src/core/inputs.py`
 
 Este documento describe el procedimiento **vigente**. Reemplaza por completo la versión
@@ -233,7 +233,7 @@ data/scenarios/v<N>/<régimen>/<set>/
 Para cada régimen se generan cinco sets: `optimization` (30 escenarios simulados),
 `validation` (100 simulados independientes), `expected` (un escenario de 12 períodos
 con todos los shocks en su media), `annual_expected` (un único período que es el
-promedio de los 12 períodos de `expected`) y, desde `v2`, `capacity` (100 simulados
+promedio de los 12 períodos de `expected`) y `capacity` (100 simulados
 que sólo sirven para dimensionar la capacidad de los satélites —`optimize capacity
 analyze`— y nunca para optimizar ni evaluar, de modo que `validation` queda fuera de
 muestra).
@@ -335,9 +335,9 @@ scenarios promote cp-...               # re-ejecuta, compara bytes -> p<N>
 scenarios generate --params p1         # candidata cv-*: 30 optimization + 100 validation + 100 capacity + expected + annual_expected
 scenarios validate cv-...              # contrato + reports/validation.html
 scenarios promote cv-...               # -> v<N>
-scenarios explore v2                   # data/scenarios/v2/reports/explore.html
-optimize verify --scenarios v2 --n 3   # CA + Gurobi
-optimize capacity analyze --scenarios v2   # tabla de capacidad por satélite (cf-* -> validate -> promote -> f<N>)
+scenarios explore v1                   # data/scenarios/v1/reports/explore.html
+optimize verify --scenarios v1 --n 3   # CA + Gurobi
+optimize capacity analyze --scenarios v1   # tabla de capacidad por satélite (cf-* -> validate -> promote -> f<N>)
 ```
 
 (Sin instalar el paquete: `poetry run python -m src.scenarios ...` y `python -m src.optimization ...`.)

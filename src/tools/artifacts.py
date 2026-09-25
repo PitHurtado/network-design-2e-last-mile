@@ -57,7 +57,7 @@ class ArtifactKind(Enum):
         for kind in cls:
             if ref.startswith(kind.candidate_prefix) or (kind.promotable and re.fullmatch(rf"{kind.prefix}\d+", ref)):
                 return kind
-        raise ValueError(f"{ref!r} is not an artifact id (expected e.g. p1, v2, r3 or a cp-/cv-/cr-/cc- candidate).")
+        raise ValueError(f"{ref!r} is not an artifact id (expected e.g. p1, v1, f1, r1 or a cp-/cv-/cf-/cr-/cc- candidate).")
 
 
 @dataclass(frozen=True)

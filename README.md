@@ -72,7 +72,7 @@ llaman a `visualization` para renderizar.
 
 Cada etapa produce un artefacto con versión propia: parámetros `p<N>`, escenarios `v<N>`,
 tablas de capacidad `f<N>` y corridas `r<N>`. El linaje vigente es
-`p1 → v1 → v2 (+ set capacity) → f1`. Todo comando escribe una **candidata** descartable
+`p1 → v1 → f1`. Todo comando escribe una **candidata** descartable
 en `sandbox/`; sólo `promote` crea una versión oficial, y la versión oficial no se
 modifica nunca.
 
@@ -94,14 +94,15 @@ modifica nunca.
 ### 1. Usar las versiones oficiales
 
 ```bash
-poetry run optimize verify --scenarios v2 --n 3     # CA + Gurobi sobre v2
-poetry run scenarios explore v2                     # data/scenarios/v2/reports/explore.html
+poetry run optimize verify --scenarios v1 --n 3     # CA + Gurobi sobre v1
+poetry run scenarios explore v1                     # data/scenarios/v1/reports/explore.html
 poetry run optimize report f1                       # data/facilities/f1/reports/capacity.html
 ```
 
 Los archivos `scenario_*.json` no se versionan en git: se regeneran de forma exacta con
-`scenarios generate --params p1` (y `promote` confirma que coinciden). `v2` es `v1` más
-el set `capacity`: los 396 escenarios comunes son idénticos.
+`scenarios generate --params p1` (y `promote` confirma que coinciden). Los sets
+`optimization`, `validation`, `expected` y `annual_expected` de `v1` son idénticos a los
+del antiguo `v3` (archivado); `capacity` es el set nuevo.
 
 ### 2. Nuevos parámetros y escenarios
 
@@ -146,7 +147,7 @@ Los modelos con capacidad (`capacitated`, `flex`) no leen niveles ni costos desd
 costos—, sino desde una tabla de capacidad versionada `f<N>`:
 
 ```bash
-poetry run optimize capacity analyze --scenarios v2 [--levels percentiles-a]   # → cf-*
+poetry run optimize capacity analyze --scenarios v1 [--levels percentiles-a]   # → cf-*
 poetry run optimize validate cf-...      # todos los satélites, niveles 0<q1<…, nivel máximo cubre ≥95% de los picos, costos crecientes
 poetry run optimize promote cf-...       # re-ejecuta y compara bytes → f<N>
 ```
@@ -173,7 +174,7 @@ Compara tres políticas de operación de capacidad bajo los tres regímenes y la
 fuentes de decisión de primera etapa (`annual_expected`, `expected`, `optimization`).
 
 ```bash
-poetry run optimize flexibility --scenarios v2 --facilities f1 --time-limit 600 --mip-gap 0   # → cr-*
+poetry run optimize flexibility --scenarios v1 --facilities f1 --time-limit 600 --mip-gap 0   # → cr-*
 poetry run optimize report cr-...        # reports/flexibility_comparison.html + summary.json
 poetry run optimize validate cr-...      # sin hojas en ERROR; TIME_LIMIT queda como advertencia
 poetry run optimize promote cr-...       # → r<N>
@@ -199,7 +200,7 @@ al caso base.
 
 ```bash
 poetry run optimize evaluate --run r1 --time-limit 600      # → cr-* con flexibility_evaluation/ (usa la f<N> de r1)
-poetry run optimize benchmark --scenarios v2 --facilities f1 --time-limit 600   # RP_100 para el VSS teórico
+poetry run optimize benchmark --scenarios v1 --facilities f1 --time-limit 600   # RP_100 para el VSS teórico
 poetry run optimize report cr-<evaluación> --benchmark cr-<benchmark>
 ```
 
@@ -237,7 +238,7 @@ data/scenarios/v<N>/<low|normal|high>/
 ├── validation/       # 100 escenarios independientes; usados para evaluar
 ├── expected/         # Un escenario de demanda esperada en 12 períodos
 ├── annual_expected/  # Un período promedio anual (caso de un período del experimento)
-└── capacity/         # 100 escenarios con streams propios; sólo para dimensionar satélites (v2 en adelante)
+└── capacity/         # 100 escenarios con streams propios; sólo para dimensionar satélites
 ```
 
 Cada conjunto incluye un manifiesto con IDs canónicos, semilla y el SHA-256 de los

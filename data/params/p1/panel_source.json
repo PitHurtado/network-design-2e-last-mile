@@ -1,0 +1,15 @@
+{
+  "built_at": "2026-09-25T10:44:22-0300",
+  "raw": [
+    {
+      "path": "data/raw_demand/base_customers_all_years_z7.csv",
+      "sha256": "02ae080f55395c32f908753b0bb4f858d0a2af1b076c7736e729a17c0d3b1a8f",
+      "bytes": 201508294
+    },
+    {
+      "path": "data/raw_pixel/customer_pixel_layer.csv",
+      "sha256": "ffd69183027e7b69f03d564f5673d3c378cbf33d113b3a736920a09ab9a77990",
+      "bytes": 6139805
+    }
+  ]
+}

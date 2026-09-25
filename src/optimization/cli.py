@@ -1,9 +1,9 @@
 """`optimize`: satellite capacity tables and versioned optimization runs.
 
-    optimize capacity analyze --scenarios v2 [--levels percentiles-a|percentiles-b|fixed-grid]  -> cf-*
-    optimize flexibility --scenarios v2 --facilities f1 [--model flex|capacitated] [--regimes ...]   -> cr-*
+    optimize capacity analyze --scenarios v1 [--levels percentiles-a|percentiles-b|fixed-grid]  -> cf-*
+    optimize flexibility --scenarios v1 --facilities f1 [--model flex|capacitated] [--regimes ...]   -> cr-*
     optimize evaluate --run r1              fixed-Y recourse on the validation scenarios   -> cr-*
-    optimize benchmark --scenarios v2 --facilities f1   RP on the validation scenarios (theoretical VSS)  -> cr-*
+    optimize benchmark --scenarios v1 --facilities f1   RP on the validation scenarios (theoretical VSS)  -> cr-*
     optimize report <run> [--benchmark rK]  HTML under <run>/reports/
     optimize verify --scenarios v1 --n 3    CA + Gurobi smoke test
     optimize validate <ref> | promote <ref> | list | show <ref>      (ref: cf-*/f<N> or cr-*/r<N>)
@@ -71,7 +71,7 @@ def main(argv: list[str] | None = None) -> None:
 
     capacity = sub.add_parser("capacity", help="satellite capacity table").add_subparsers(dest="action", required=True)
     analyze = capacity.add_parser("analyze", help="peak fleet per satellite -> levels and costs")
-    analyze.add_argument("--scenarios", required=True, help="scenario version with a capacity set (v2, cv-...)")
+    analyze.add_argument("--scenarios", required=True, help="scenario version with a capacity set (v1, cv-...)")
     analyze.add_argument("--levels", choices=sorted(LEVEL_METHODS), default="percentiles-a")
     analyze.add_argument("--alpha", type=float, default=None, help="fixed share of OPEX (default: the tariff table's)")
     cli.add_regimes(analyze)
